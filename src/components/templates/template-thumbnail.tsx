@@ -1,5 +1,6 @@
 import Image from "next/image";
 import type { Template } from "@/lib/templates-data";
+import { cn } from "@/lib/utils";
 
 /** Real screenshots downloaded from the Figma file via download_assets — one per template. */
 const REAL_SCREENSHOTS: Record<Template["slug"], string> = {
@@ -12,14 +13,21 @@ const REAL_SCREENSHOTS: Record<Template["slug"], string> = {
 };
 
 export function TemplateThumbnail({ template }: { template: Template }) {
+  const isMobile = template.device === "mobile";
+
   return (
-    <div className="relative h-full w-full overflow-hidden bg-white">
+    <div
+      className={cn(
+        "relative h-full w-full overflow-hidden",
+        isMobile ? "bg-[#0a0a0f]" : "bg-white",
+      )}
+    >
       <Image
         src={REAL_SCREENSHOTS[template.slug]}
         alt={`${template.title} preview`}
         fill
         loading="eager"
-        className="object-cover object-top"
+        className={isMobile ? "object-contain p-1.5" : "object-cover object-top"}
         sizes="(min-width: 640px) 25vw, 50vw"
       />
     </div>

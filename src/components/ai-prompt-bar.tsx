@@ -23,7 +23,7 @@ export function AiPromptBar({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border/60 bg-card p-3",
+        "rounded-2xl border border-primary/40 bg-card p-3 shadow-[0_0_0_1px_rgba(108,92,231,0.08)]",
         className,
       )}
     >

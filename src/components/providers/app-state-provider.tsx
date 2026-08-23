@@ -12,6 +12,10 @@ type AuthMode = "signin" | "signup";
 
 type AppState = {
   isSignedIn: boolean;
+  /** False until localStorage has been read once — lets pages avoid a false
+   * "not signed in" redirect on the very first render (a real race: a page's
+   * own redirect-check effect can run before this provider's has synced). */
+  hydrated: boolean;
   userName: string | null;
   signIn: (name: string) => void;
   signOut: () => void;
@@ -28,6 +32,7 @@ const AppStateContext = createContext<AppState | null>(null);
 
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [userName, setUserName] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthModeState] = useState<AuthMode>("signin");
 
@@ -38,6 +43,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     // default heuristic — the value isn't knowable during server render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored) setUserName(stored);
+    setHydrated(true);
   }, []);
 
   const signIn = useCallback((name: string) => {
@@ -64,6 +70,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     <AppStateContext.Provider
       value={{
         isSignedIn: userName !== null,
+        hydrated,
         userName,
         signIn,
         signOut,

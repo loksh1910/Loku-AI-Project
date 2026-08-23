@@ -25,7 +25,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { TemplateCard } from "@/components/templates/template-card";
 import { TemplateDetailDialog } from "@/components/templates/template-detail-dialog";
-import { templates, type Template } from "@/lib/templates-data";
+import { TemplateSearchRow } from "@/components/templates/template-search-row";
+import { templates, type Template, type TemplateDevice } from "@/lib/templates-data";
 import { useAppState } from "@/components/providers/app-state-provider";
 import { toast } from "sonner";
 
@@ -50,14 +51,16 @@ const SUGGESTIONS = [
 ];
 
 export default function DashboardPage() {
-  const { isSignedIn, userName } = useAppState();
+  const { isSignedIn, hydrated, userName } = useAppState();
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [detailTemplate, setDetailTemplate] = useState<Template | null>(null);
+  const [templateQuery, setTemplateQuery] = useState("");
+  const [templateDevice, setTemplateDevice] = useState<TemplateDevice>("web");
 
   useEffect(() => {
-    if (!isSignedIn) router.replace("/");
-  }, [isSignedIn, router]);
+    if (hydrated && !isSignedIn) router.replace("/");
+  }, [hydrated, isSignedIn, router]);
 
   if (!isSignedIn) return null;
 
@@ -126,11 +129,11 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          <section className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <section className="mt-8 grid grid-cols-2 gap-2.5 sm:grid-cols-5">
             {ENTRY_CARDS.map(({ label, icon: Icon, href }) => {
               const card = (
-                <div className="flex h-28 flex-col items-center justify-center gap-2 rounded-xl border border-border/60 bg-card px-3 text-center text-sm hover:border-primary/50">
-                  <Icon className="h-5 w-5 text-primary" />
+                <div className="flex h-[76px] flex-col items-center justify-center gap-1.5 rounded-xl border border-border/60 bg-card px-2 text-center text-xs hover:border-primary/50">
+                  <Icon className="h-4 w-4 text-primary" />
                   {label}
                 </div>
               );
@@ -172,10 +175,24 @@ export default function DashboardPage() {
                 Explore more templates →
               </Link>
             </div>
+            <TemplateSearchRow
+              query={templateQuery}
+              onQueryChange={setTemplateQuery}
+              device={templateDevice}
+              onDeviceChange={setTemplateDevice}
+            />
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {templates.slice(0, 4).map((t) => (
-                <TemplateCard key={t.slug} template={t} onOpenDetail={setDetailTemplate} />
-              ))}
+              {templates
+                .filter(
+                  (t) =>
+                    t.device === templateDevice &&
+                    (t.title.toLowerCase().includes(templateQuery.toLowerCase()) ||
+                      t.subtitle.toLowerCase().includes(templateQuery.toLowerCase())),
+                )
+                .slice(0, 4)
+                .map((t) => (
+                  <TemplateCard key={t.slug} template={t} onOpenDetail={setDetailTemplate} />
+                ))}
             </div>
           </section>
         </main>

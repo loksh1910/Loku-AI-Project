@@ -31,9 +31,9 @@ export function TemplateDetailDialog({
     >
       <DialogContent
         showCloseButton
-        className="max-h-[90vh] w-full max-w-[1024px] gap-0 overflow-y-auto rounded-2xl border border-primary/40 bg-popover p-0"
+        className="w-full max-w-[1024px] gap-0 rounded-2xl border border-primary/40 bg-popover p-0 sm:max-w-[1024px]"
       >
-        <div className="sticky top-0 z-10 flex items-start justify-between border-b border-border/60 bg-popover px-8 py-6">
+        <div className="flex items-start justify-between border-b border-border/60 px-8 py-6">
           <div>
             <DialogTitle className="text-xl font-semibold">
               {template.title} — {template.subtitle}

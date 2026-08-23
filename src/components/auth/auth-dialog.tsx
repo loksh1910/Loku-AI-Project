@@ -5,11 +5,10 @@ import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { LogoMark } from "@/components/logo";
+import { MockupGlow } from "@/components/mockup-glow";
 import { useAppState } from "@/components/providers/app-state-provider";
 import { toast } from "sonner";
-import { Sparkles, MousePointer2 } from "lucide-react";
 
 function GoogleIcon() {
   return (
@@ -31,32 +30,6 @@ function GoogleIcon() {
         d="M12 4.75c1.76 0 3.34.61 4.58 1.8l3.44-3.44C17.94 1.19 15.24 0 12 0 7.31 0 3.26 2.69 1.27 6.6l4.01 3.11C6.23 6.86 8.88 4.75 12 4.75z"
       />
     </svg>
-  );
-}
-
-function IllustrationPanel() {
-  return (
-    <div className="relative hidden w-[280px] shrink-0 flex-col justify-between overflow-hidden rounded-l-2xl bg-gradient-to-br from-[#3d2b90] via-[#6C5CE7] to-[#8E51FF] p-6 sm:flex">
-      <div className="flex items-center gap-2 text-white">
-        <LogoMark className="h-7 w-7 bg-white/15" />
-        <span className="text-sm font-semibold">loku</span>
-      </div>
-      <div className="space-y-3">
-        <div className="rounded-xl bg-white/10 p-3 backdrop-blur-sm">
-          <div className="mb-2 h-2 w-2/3 rounded-full bg-white/40" />
-          <div className="mb-3 h-2 w-1/2 rounded-full bg-white/25" />
-          <div className="grid grid-cols-3 gap-2">
-            <div className="h-10 rounded-md bg-white/20" />
-            <div className="h-10 rounded-md bg-white/30" />
-            <div className="h-10 rounded-md bg-white/20" />
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-white/80">
-          <MousePointer2 className="h-4 w-4" />
-          <Sparkles className="h-4 w-4" />
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -96,17 +69,28 @@ export function AuthDialog() {
     <Dialog open={authOpen} onOpenChange={(open) => !open && closeAuth()}>
       <DialogContent
         showCloseButton
-        className="flex max-h-[90vh] w-full max-w-[640px] flex-col gap-0 overflow-y-auto rounded-2xl border-border/60 bg-popover p-0 sm:flex-row"
+        className="grid w-full max-w-[640px] grid-cols-1 gap-0 rounded-2xl border-border/60 bg-popover p-6 sm:max-w-[640px] sm:grid-cols-[220px_1fr] sm:gap-8 sm:p-8"
       >
-        <DialogTitle className="sr-only">
-          {authMode === "signin" ? "Sign In" : "Create your account"}
-        </DialogTitle>
-        <IllustrationPanel />
+        <div className="mb-4 flex items-center gap-2 sm:hidden">
+          <LogoMark className="h-6 w-6" />
+          <span className="text-sm font-semibold">loku</span>
+        </div>
 
-        <div className="flex-1 p-8">
+        <div className="hidden items-center justify-center sm:flex">
+          <MockupGlow />
+        </div>
+
+        <div>
+          <div className="mb-4 hidden items-center gap-2 sm:flex">
+            <LogoMark className="h-6 w-6" />
+            <span className="text-sm font-semibold">loku</span>
+          </div>
+
           {authMode === "signin" ? (
-            <form onSubmit={handleLogIn} className="space-y-4">
-              <h2 className="text-xl font-semibold">Sign In</h2>
+            <form onSubmit={handleLogIn} className="space-y-3">
+              <DialogTitle className="text-center text-lg font-semibold">
+                Sign In
+              </DialogTitle>
 
               <Button
                 type="button"
@@ -118,44 +102,35 @@ export function AuthDialog() {
                 Continue with Google
               </Button>
 
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <div className="h-px flex-1 bg-border" />
-                or
-                <div className="h-px flex-1 bg-border" />
-              </div>
+              <p className="text-center text-xs text-muted-foreground">or</p>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="signin-email">Email</Label>
-                <Input
-                  id="signin-email"
-                  type="email"
-                  required
-                  value={signInEmail}
-                  onChange={(e) => setSignInEmail(e.target.value)}
-                  placeholder="you@example.com"
-                />
-              </div>
+              <Input
+                type="email"
+                required
+                value={signInEmail}
+                onChange={(e) => setSignInEmail(e.target.value)}
+                placeholder="Email"
+                aria-label="Email"
+                className="rounded-lg"
+              />
 
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="signin-password">Password</Label>
-                  <button
-                    type="button"
-                    onClick={() => toast("Password reset is coming soon.")}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    Reset password
-                  </button>
-                </div>
-                <Input
-                  id="signin-password"
-                  type="password"
-                  required
-                  value={signInPassword}
-                  onChange={(e) => setSignInPassword(e.target.value)}
-                  placeholder="••••••••"
-                />
-              </div>
+              <Input
+                type="password"
+                required
+                value={signInPassword}
+                onChange={(e) => setSignInPassword(e.target.value)}
+                placeholder="Password"
+                aria-label="Password"
+                className="rounded-lg"
+              />
+
+              <button
+                type="button"
+                onClick={() => toast("Password reset is coming soon.")}
+                className="block w-full text-right text-xs text-primary hover:underline"
+              >
+                Reset password
+              </button>
 
               <Button
                 type="submit"
@@ -176,8 +151,10 @@ export function AuthDialog() {
               </p>
             </form>
           ) : (
-            <form onSubmit={handleCreateAccount} className="space-y-4">
-              <h2 className="text-xl font-semibold">Create your account</h2>
+            <form onSubmit={handleCreateAccount} className="space-y-3">
+              <DialogTitle className="text-center text-lg font-semibold">
+                Create your account
+              </DialogTitle>
 
               <Button
                 type="button"
@@ -189,58 +166,46 @@ export function AuthDialog() {
                 Continue with Google
               </Button>
 
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <div className="h-px flex-1 bg-border" />
-                or
-                <div className="h-px flex-1 bg-border" />
-              </div>
+              <p className="text-center text-xs text-muted-foreground">or</p>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="signup-name">Name</Label>
+              <Input
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Name"
+                aria-label="Name"
+                className="rounded-lg"
+              />
+
+              <Input
+                type="email"
+                required
+                value={signUpEmail}
+                onChange={(e) => setSignUpEmail(e.target.value)}
+                placeholder="Email"
+                aria-label="Email"
+                className="rounded-lg"
+              />
+
+              <div className="grid grid-cols-2 gap-2">
                 <Input
-                  id="signup-name"
+                  type="password"
                   required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Your name"
+                  value={signUpPassword}
+                  onChange={(e) => setSignUpPassword(e.target.value)}
+                  placeholder="Password"
+                  aria-label="Password"
+                  className="rounded-lg"
                 />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="signup-email">Email</Label>
                 <Input
-                  id="signup-email"
-                  type="email"
+                  type="password"
                   required
-                  value={signUpEmail}
-                  onChange={(e) => setSignUpEmail(e.target.value)}
-                  placeholder="you@example.com"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm"
+                  aria-label="Confirm password"
+                  className="rounded-lg"
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="signup-password">Password</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    required
-                    value={signUpPassword}
-                    onChange={(e) => setSignUpPassword(e.target.value)}
-                    placeholder="••••••••"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="signup-confirm">Confirm</Label>
-                  <Input
-                    id="signup-confirm"
-                    type="password"
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
-                  />
-                </div>
               </div>
 
               <Button

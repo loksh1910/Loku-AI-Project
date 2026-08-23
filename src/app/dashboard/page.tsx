@@ -70,7 +70,7 @@ export default function DashboardPage() {
       <LeftRail />
 
       <div className="flex flex-1 flex-col">
-        <header className="flex items-center justify-end gap-2 px-6 py-4">
+        <header className="flex items-center justify-end gap-2 px-[60px] py-4">
           <button
             className="rounded-full p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
             onClick={() => toast("No new notifications.")}
@@ -94,7 +94,7 @@ export default function DashboardPage() {
           </DropdownMenu>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl flex-1 px-6 pb-16">
+        <main className="mx-auto w-full max-w-[1320px] flex-1 px-[60px] pb-16">
           <section className="pt-6 text-center">
             <h1 className="text-3xl font-semibold">
               {greeting}, <span className="text-primary">{userName}!</span>

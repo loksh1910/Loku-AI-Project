@@ -18,6 +18,7 @@ import {
 import { TemplateCard } from "@/components/templates/template-card";
 import { TemplateDetailDialog } from "@/components/templates/template-detail-dialog";
 import { TemplateSearchRow } from "@/components/templates/template-search-row";
+import { MockupGlow } from "@/components/mockup-glow";
 import { templates, type Template, type TemplateDevice } from "@/lib/templates-data";
 import { useAppState } from "@/components/providers/app-state-provider";
 
@@ -91,7 +92,7 @@ export default function LandingPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3">
+      <header className="mx-auto flex w-full max-w-[1320px] items-center justify-between px-[60px] py-3">
         <Logo markClassName="h-7 w-7" />
         <div className="flex items-center gap-1">
           <ThemeToggle />
@@ -108,9 +109,10 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4">
+      <main className="mx-auto w-full max-w-[1320px] flex-1 px-[60px]">
         {/* Hero */}
-        <section className="pt-10 text-center sm:pt-14">
+        <section className="relative pt-10 text-center sm:pt-14">
+          <MockupGlow className="pointer-events-none absolute top-0 left-0 hidden w-40 -translate-y-4 opacity-90 sm:block" />
           <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
             From idea to interface –{" "}
             <span className="bg-gradient-to-r from-[#8E51FF] to-[#3B82F6] bg-clip-text text-transparent">
@@ -222,7 +224,7 @@ export default function LandingPage() {
       </main>
 
       <footer className="mt-16 border-t border-border/60 py-6">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 text-sm text-muted-foreground">
+        <div className="mx-auto flex w-full max-w-[1320px] items-center justify-between px-[60px] text-sm text-muted-foreground">
           <Logo className="opacity-70" markClassName="h-6 w-6" />
           <span>© {new Date().getFullYear()} Loku AI</span>
         </div>

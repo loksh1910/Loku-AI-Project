@@ -34,7 +34,7 @@ export default function TemplatesPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
+      <header className="mx-auto flex w-full max-w-[1320px] items-center justify-between px-[60px] py-5">
         <Logo />
         <div className="flex items-center gap-2">
           <ThemeToggle />
@@ -58,7 +58,7 @@ export default function TemplatesPage() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 pb-16">
+      <main className="mx-auto w-full max-w-[1320px] flex-1 px-[60px] pb-16">
         <div className="mb-6 flex items-center gap-3">
           <Link
             href={isSignedIn ? "/dashboard" : "/"}

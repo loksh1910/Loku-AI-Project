@@ -51,7 +51,7 @@ export const templates: Template[] = [
   {
     slug: "ecommerce-platform",
     title: "E-commerce platform",
-    subtitle: "Your Store. The Stress-free way to shop.",
+    subtitle: "Start your store. Skip the stress.",
     device: "web",
     screens: 10,
     gradient: "from-[#7a2e0e] via-[#c2410c] to-[#fb923c]",

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -175,35 +176,47 @@ export default function LandingPage() {
         </section>
 
         {/* Start from anywhere */}
-        <section className="mt-20 rounded-3xl border border-border/60 bg-card px-6 py-12 text-center sm:mt-24">
-          <h2 className="text-2xl font-semibold sm:text-3xl">
-            Start from <span className="text-primary">anywhere</span>
-          </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            However your idea starts, Loku meets you there.
-          </p>
-          <div className="mx-auto mt-6 flex max-w-2xl flex-wrap items-center justify-center gap-2.5">
-            {START_FROM.map((item) => (
-              <span
-                key={item.label}
-                className="rounded-full border border-border/60 bg-secondary px-4 py-2 text-sm"
+        <section className="mt-20 grid grid-cols-1 items-center gap-8 rounded-3xl border border-border/60 bg-card px-6 py-10 sm:mt-24 sm:grid-cols-2 sm:px-10">
+          <div>
+            <h2 className="text-2xl font-semibold sm:text-3xl">
+              Start from <span className="text-primary">anywhere</span>
+            </h2>
+            <p className="mt-2 max-w-md text-sm text-muted-foreground">
+              However your idea starts, Loku meets you there.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center gap-2.5">
+              {START_FROM.map((item) => (
+                <span
+                  key={item.label}
+                  className="rounded-full border border-border/60 bg-secondary px-4 py-2 text-sm"
+                >
+                  {item.label} <span className="text-primary">→</span> {item.to}
+                </span>
+              ))}
+            </div>
+            <div className="mt-7 flex flex-wrap items-center gap-3">
+              <Link href="/templates">
+                <Button variant="outline" className="rounded-full">
+                  Explore Templates
+                </Button>
+              </Link>
+              <Button
+                className="rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF] px-8 text-white hover:opacity-90"
+                onClick={handleStart}
               >
-                {item.label} <span className="text-primary">→</span> {item.to}
-              </span>
-            ))}
-          </div>
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/templates">
-              <Button variant="outline" className="rounded-full">
-                Explore Templates
+                Start designing
               </Button>
-            </Link>
-            <Button
-              className="rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF] px-8 text-white hover:opacity-90"
-              onClick={handleStart}
-            >
-              Start designing
-            </Button>
+            </div>
+          </div>
+          <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-[#0a0a0f]">
+            <Image
+              src="/images/start-from-anywhere.png"
+              alt="Sketch, wireframe, sitemap, and UX flow all connecting into one continuous design process"
+              fill
+              loading="eager"
+              className="object-cover"
+              sizes="(min-width: 640px) 50vw, 100vw"
+            />
           </div>
         </section>
       </main>

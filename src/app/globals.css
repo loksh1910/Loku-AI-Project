@@ -1,0 +1,153 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: ui-monospace, Consolas, "SF Mono", monospace;
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * Loku AI design tokens — extracted from the live Figma file (DESIGN_SYSTEM.md).
+ * Dark is the verified-against-Figma theme (every screenshotted screen was dark).
+ * Light is a reasonable derivation from the same brand tokens — NOT yet confirmed
+ * against a Figma light-mode design (none exists yet). Replace when one does.
+ *
+ * Spacing scale (DESIGN_SYSTEM.md §4) maps directly onto Tailwind's default spacing
+ * units, so no custom spacing tokens are needed — use them directly:
+ *   xxxs=2px -> 0.5   xxs=4px -> 1   xs=8px -> 2   s=16px -> 4
+ *   s+=24px -> 6      m=32px -> 8   l=48px -> 12   xl=64px -> 16
+ */
+
+:root {
+  --background: #ffffff;
+  --foreground: #111111;
+  --card: #ffffff;
+  --card-foreground: #111111;
+  --popover: #ffffff;
+  --popover-foreground: #111111;
+  --primary: #6c5ce7;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f6fa;
+  --secondary-foreground: #111111;
+  --muted: #f5f6fa;
+  --muted-foreground: #6b7280;
+  --accent: #8e51ff;
+  --accent-foreground: #ffffff;
+  --destructive: #f43f5e;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #6c5ce7;
+  --chart-1: #6c5ce7;
+  --chart-2: #8e51ff;
+  --chart-3: #00d68f;
+  --chart-4: #f5d547;
+  --chart-5: #3b82f6;
+  --radius: 0.75rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #111111;
+  --sidebar-primary: #6c5ce7;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f5f6fa;
+  --sidebar-accent-foreground: #111111;
+  --sidebar-border: #e5e7eb;
+  --sidebar-ring: #6c5ce7;
+
+  /* Loku brand tokens available under both themes */
+  --loku-success: #00d68f;
+  --loku-warning: #f5d547;
+  --loku-danger: #f43f5e;
+  --loku-info: #3b82f6;
+}
+
+.dark {
+  --background: #0a0a0f;
+  --foreground: #ffffff;
+  --card: #121422;
+  --card-foreground: #ffffff;
+  --popover: #13112a;
+  --popover-foreground: #ffffff;
+  --primary: #6c5ce7;
+  --primary-foreground: #ffffff;
+  --secondary: #1e2235;
+  --secondary-foreground: #ffffff;
+  --muted: #1e2235;
+  --muted-foreground: #9ca3af;
+  --accent: #8e51ff;
+  --accent-foreground: #ffffff;
+  --destructive: #f43f5e;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #6c5ce7;
+  --chart-1: #6c5ce7;
+  --chart-2: #8e51ff;
+  --chart-3: #00d68f;
+  --chart-4: #f5d547;
+  --chart-5: #3b82f6;
+  --sidebar: #0a0a0f;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #6c5ce7;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1e2235;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #6c5ce7;
+
+  --loku-success: #00d68f;
+  --loku-warning: #f5d547;
+  --loku-danger: #f43f5e;
+  --loku-info: #3b82f6;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}

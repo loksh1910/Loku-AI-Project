@@ -9,11 +9,15 @@ export function TemplateSearchRow({
   onQueryChange,
   device,
   onDeviceChange,
+  onFilterClick,
+  activeFilterCount = 0,
 }: {
   query: string;
   onQueryChange: (value: string) => void;
   device: TemplateDevice;
   onDeviceChange: (device: TemplateDevice) => void;
+  onFilterClick?: () => void;
+  activeFilterCount?: number;
 }) {
   return (
     <div className="mb-6 flex items-center gap-3">
@@ -27,10 +31,21 @@ export function TemplateSearchRow({
         />
       </div>
       <button
-        className="rounded-full border border-border/60 p-2.5 text-muted-foreground hover:text-foreground"
+        onClick={onFilterClick}
+        className={cn(
+          "relative rounded-full border p-2.5 text-muted-foreground hover:text-foreground",
+          activeFilterCount > 0
+            ? "border-primary/50 text-primary"
+            : "border-border/60",
+        )}
         aria-label="Filters"
       >
         <SlidersHorizontal className="h-4 w-4" />
+        {activeFilterCount > 0 && (
+          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+            {activeFilterCount}
+          </span>
+        )}
       </button>
       <div className="flex items-center gap-1 rounded-full border border-border/60 p-1">
         <button

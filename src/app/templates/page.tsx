@@ -11,7 +11,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TemplateCard } from "@/components/templates/template-card";
 import { TemplateDetailDialog } from "@/components/templates/template-detail-dialog";
 import { TemplateSearchRow } from "@/components/templates/template-search-row";
+import { FilterDialog } from "@/components/templates/filter-dialog";
 import { templates, type Template, type TemplateDevice } from "@/lib/templates-data";
+import { templateMatchesFilters } from "@/lib/filter-match";
 import { useAppState } from "@/components/providers/app-state-provider";
 
 export default function TemplatesPage() {
@@ -19,6 +21,8 @@ export default function TemplatesPage() {
   const [tab, setTab] = useState<"latest" | "popular">("latest");
   const [query, setQuery] = useState("");
   const [detailTemplate, setDetailTemplate] = useState<Template | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState<string[]>([]);
   const { isSignedIn, userName, openAuth } = useAppState();
 
   const filtered = useMemo(
@@ -27,9 +31,10 @@ export default function TemplatesPage() {
         (t) =>
           t.device === device &&
           (t.title.toLowerCase().includes(query.toLowerCase()) ||
-            t.subtitle.toLowerCase().includes(query.toLowerCase())),
+            t.subtitle.toLowerCase().includes(query.toLowerCase())) &&
+          templateMatchesFilters(t, appliedFilters),
       ),
-    [device, query],
+    [device, query, appliedFilters],
   );
 
   return (
@@ -76,6 +81,8 @@ export default function TemplatesPage() {
           onQueryChange={setQuery}
           device={device}
           onDeviceChange={setDevice}
+          onFilterClick={() => setFilterOpen(true)}
+          activeFilterCount={appliedFilters.length}
         />
 
         <div className="mb-8">
@@ -89,7 +96,7 @@ export default function TemplatesPage() {
 
         {filtered.length === 0 ? (
           <p className="py-16 text-center text-sm text-muted-foreground">
-            No templates match your search yet.
+            No templates match your search or filters yet.
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-5 sm:grid-cols-3">
@@ -109,6 +116,12 @@ export default function TemplatesPage() {
       <TemplateDetailDialog
         template={detailTemplate}
         onOpenChange={(open) => !open && setDetailTemplate(null)}
+      />
+      <FilterDialog
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
+        selected={appliedFilters}
+        onApply={setAppliedFilters}
       />
     </div>
   );

@@ -18,8 +18,10 @@ import {
 import { TemplateCard } from "@/components/templates/template-card";
 import { TemplateDetailDialog } from "@/components/templates/template-detail-dialog";
 import { TemplateSearchRow } from "@/components/templates/template-search-row";
+import { FilterDialog } from "@/components/templates/filter-dialog";
 import { MockupGlow } from "@/components/mockup-glow";
 import { templates, type Template, type TemplateDevice } from "@/lib/templates-data";
+import { templateMatchesFilters } from "@/lib/filter-match";
 import { useAppState } from "@/components/providers/app-state-provider";
 
 const FEATURE_BLOCKS = [
@@ -66,6 +68,8 @@ export default function LandingPage() {
   const [query, setQuery] = useState("");
   const [device, setDevice] = useState<TemplateDevice>("web");
   const [detailTemplate, setDetailTemplate] = useState<Template | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState<string[]>([]);
   const { isSignedIn, openAuth } = useAppState();
   const router = useRouter();
 
@@ -76,10 +80,11 @@ export default function LandingPage() {
           (t) =>
             t.device === device &&
             (t.title.toLowerCase().includes(query.toLowerCase()) ||
-              t.subtitle.toLowerCase().includes(query.toLowerCase())),
+              t.subtitle.toLowerCase().includes(query.toLowerCase())) &&
+            templateMatchesFilters(t, appliedFilters),
         )
         .slice(0, 4),
-    [device, query],
+    [device, query, appliedFilters],
   );
 
   function handleStart() {
@@ -143,6 +148,8 @@ export default function LandingPage() {
             onQueryChange={setQuery}
             device={device}
             onDeviceChange={setDevice}
+            onFilterClick={() => setFilterOpen(true)}
+            activeFilterCount={appliedFilters.length}
           />
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -233,6 +240,12 @@ export default function LandingPage() {
       <TemplateDetailDialog
         template={detailTemplate}
         onOpenChange={(open) => !open && setDetailTemplate(null)}
+      />
+      <FilterDialog
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
+        selected={appliedFilters}
+        onApply={setAppliedFilters}
       />
     </div>
   );

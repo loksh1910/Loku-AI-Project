@@ -26,7 +26,9 @@ import {
 import { TemplateCard } from "@/components/templates/template-card";
 import { TemplateDetailDialog } from "@/components/templates/template-detail-dialog";
 import { TemplateSearchRow } from "@/components/templates/template-search-row";
+import { FilterDialog } from "@/components/templates/filter-dialog";
 import { templates, type Template, type TemplateDevice } from "@/lib/templates-data";
+import { templateMatchesFilters } from "@/lib/filter-match";
 import { useAppState } from "@/components/providers/app-state-provider";
 import { toast } from "sonner";
 
@@ -57,6 +59,8 @@ export default function DashboardPage() {
   const [detailTemplate, setDetailTemplate] = useState<Template | null>(null);
   const [templateQuery, setTemplateQuery] = useState("");
   const [templateDevice, setTemplateDevice] = useState<TemplateDevice>("web");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState<string[]>([]);
 
   useEffect(() => {
     if (hydrated && !isSignedIn) router.replace("/");
@@ -180,6 +184,8 @@ export default function DashboardPage() {
               onQueryChange={setTemplateQuery}
               device={templateDevice}
               onDeviceChange={setTemplateDevice}
+              onFilterClick={() => setFilterOpen(true)}
+              activeFilterCount={appliedFilters.length}
             />
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               {templates
@@ -187,7 +193,8 @@ export default function DashboardPage() {
                   (t) =>
                     t.device === templateDevice &&
                     (t.title.toLowerCase().includes(templateQuery.toLowerCase()) ||
-                      t.subtitle.toLowerCase().includes(templateQuery.toLowerCase())),
+                      t.subtitle.toLowerCase().includes(templateQuery.toLowerCase())) &&
+                    templateMatchesFilters(t, appliedFilters),
                 )
                 .slice(0, 4)
                 .map((t) => (
@@ -201,6 +208,12 @@ export default function DashboardPage() {
       <TemplateDetailDialog
         template={detailTemplate}
         onOpenChange={(open) => !open && setDetailTemplate(null)}
+      />
+      <FilterDialog
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
+        selected={appliedFilters}
+        onApply={setAppliedFilters}
       />
     </div>
   );

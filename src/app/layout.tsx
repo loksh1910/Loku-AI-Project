@@ -4,6 +4,8 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { AppStateProvider } from "@/components/providers/app-state-provider";
+import { AuthDialog } from "@/components/auth/auth-dialog";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -30,7 +32,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           enableSystem={false}
           disableTransitionOnChange
         >
-          <TooltipProvider>{children}</TooltipProvider>
+          <AppStateProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+            <AuthDialog />
+          </AppStateProvider>
           <Toaster />
         </ThemeProvider>
       </body>

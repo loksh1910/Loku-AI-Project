@@ -46,7 +46,7 @@ export function LeftRail() {
 
   if (!expanded) {
     return (
-      <aside className="flex w-16 shrink-0 flex-col items-center gap-6 border-r border-border/60 py-4">
+      <aside className="sticky top-0 flex h-screen w-16 shrink-0 flex-col items-center gap-6 border-r border-border/60 py-4">
         <button onClick={() => setExpanded(true)} aria-label="Expand sidebar">
           <LogoMark className="h-9 w-9" />
         </button>
@@ -91,7 +91,7 @@ export function LeftRail() {
   }
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-border/60 p-4">
+    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-border/60 p-4">
       <div className="mb-4 flex items-center justify-between">
         <LogoMark className="h-9 w-9" />
         <button

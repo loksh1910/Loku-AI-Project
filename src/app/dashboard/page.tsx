@@ -129,10 +129,10 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          <section className="mt-8 grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+          <section className="mx-auto mt-8 grid max-w-2xl grid-cols-2 gap-2.5 sm:grid-cols-5">
             {ENTRY_CARDS.map(({ label, icon: Icon, href }) => {
               const card = (
-                <div className="flex h-[76px] flex-col items-center justify-center gap-1.5 rounded-xl border border-border/60 bg-card px-2 text-center text-xs hover:border-primary/50">
+                <div className="flex h-24 flex-col items-center justify-center gap-1.5 rounded-xl border border-border/60 bg-card px-2 text-center text-xs hover:border-primary/50">
                   <Icon className="h-4 w-4 text-primary" />
                   {label}
                 </div>

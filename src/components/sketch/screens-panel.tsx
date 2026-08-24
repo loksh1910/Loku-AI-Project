@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, Search, ChevronRight, Eye, MoreHorizontal } from "lucide-react";
 import {
   DEVICE_CATALOG,
@@ -9,7 +9,6 @@ import {
   type SketchDeviceCategory,
 } from "@/lib/sketch-devices";
 import type { SketchFrame } from "@/components/sketch/sketch-types";
-import { cn } from "@/lib/utils";
 
 type View = "empty" | "categories" | "devices" | "list";
 
@@ -17,17 +16,34 @@ export function ScreensPanel({
   frames,
   onAddFrame,
   onClose,
+  onRenameFrame,
 }: {
   frames: SketchFrame[];
   onAddFrame: (device: SketchDevice) => void;
   onClose: () => void;
+  onRenameFrame: (id: string, name: string) => void;
 }) {
   const [view, setView] = useState<View>(frames.length > 0 ? "list" : "empty");
   const [category, setCategory] = useState<SketchDeviceCategory>("Mobile");
   const [hoveredDevice, setHoveredDevice] = useState<SketchDevice | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handlePointerDown(e: PointerEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [onClose]);
 
   return (
-    <div className="absolute top-14 left-16 z-30 flex overflow-hidden rounded-2xl border border-border/60 bg-popover shadow-2xl">
+    <div
+      ref={rootRef}
+      className="absolute top-14 left-3 z-30 flex overflow-hidden rounded-2xl border border-border/60 bg-popover shadow-2xl"
+    >
       {view === "empty" && (
         <div className="w-[280px] p-4">
           <div className="mb-3 flex items-center justify-between">
@@ -169,7 +185,29 @@ export function ScreensPanel({
                 <span className="w-5 shrink-0 text-xs text-muted-foreground">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <span className="flex-1 truncate">{f.name}</span>
+                {renamingId === f.id ? (
+                  <input
+                    autoFocus
+                    defaultValue={f.name}
+                    onBlur={(e) => {
+                      onRenameFrame(f.id, e.target.value.trim() || f.name);
+                      setRenamingId(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                      if (e.key === "Escape") setRenamingId(null);
+                    }}
+                    className="flex-1 rounded bg-secondary px-1 py-0.5 text-sm outline-none"
+                  />
+                ) : (
+                  <span
+                    onDoubleClick={() => setRenamingId(f.id)}
+                    className="flex-1 truncate"
+                    title="Double-click to rename"
+                  >
+                    {f.name}
+                  </span>
+                )}
                 <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                 <Eye className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
@@ -177,17 +215,6 @@ export function ScreensPanel({
           </div>
         </div>
       )}
-
-      <button
-        onClick={onClose}
-        className={cn(
-          "absolute top-2 right-2 rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground",
-          view === "devices" && hoveredDevice && "right-[168px]",
-        )}
-        aria-label="Close"
-      >
-        ✕
-      </button>
     </div>
   );
 }

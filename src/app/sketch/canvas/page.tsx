@@ -9,6 +9,11 @@ import { RightSketchTools } from "@/components/sketch/right-sketch-tools";
 import { BottomToolbar } from "@/components/sketch/bottom-toolbar";
 import { SketchCanvasView } from "@/components/sketch/sketch-canvas-view";
 import { ConnectorInteractionBox } from "@/components/sketch/connector-interaction-box";
+import { GenerateQuestionsOverlay, type GenerateAnswers } from "@/components/sketch/generate-questions-overlay";
+import { AiBuildingOverlay } from "@/components/sketch/ai-building-overlay";
+import { PresentModeView } from "@/components/present/present-mode-view";
+import { ModeSwitch, type ViewMode } from "@/components/present/mode-switch";
+import { PresentLeftRail, type PresentPanel } from "@/components/present/present-left-rail";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAppState } from "@/components/providers/app-state-provider";
@@ -61,6 +66,11 @@ export default function SketchCanvasPage() {
   } | null>(null);
   const [projectName, setProjectName] = useState("Project name");
   const [editingName, setEditingName] = useState(false);
+  const [flowStage, setFlowStage] = useState<"idle" | "questions" | "building">("idle");
+  const [viewMode, setViewMode] = useState<ViewMode>("sketch");
+  const [generationPrompt, setGenerationPrompt] = useState("");
+  const [maxVariations, setMaxVariations] = useState(3);
+  const [presentPanel, setPresentPanel] = useState<PresentPanel>("screens");
 
   useEffect(() => {
     if (hydrated && !isSignedIn) router.replace("/");
@@ -367,39 +377,46 @@ export default function SketchCanvasPage() {
 
   return (
     <div className="relative flex flex-1">
-      <SketchLeftRail
-        onScreensClick={() => setScreensOpen((v) => !v)}
-        screensActive={screensOpen}
-      />
+      {viewMode === "sketch" && (
+        <SketchLeftRail
+          onScreensClick={() => setScreensOpen((v) => !v)}
+          screensActive={screensOpen}
+        />
+      )}
+      {viewMode === "present" && <PresentLeftRail panel={presentPanel} onPanelChange={setPresentPanel} />}
 
-      <div className="absolute top-3 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
-        <button
-          onClick={undo}
-          disabled={past.length === 0}
-          className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
-          aria-label="Undo"
-        >
-          <Undo2 className="h-3.5 w-3.5" />
-        </button>
-        <button
-          onClick={redo}
-          disabled={future.length === 0}
-          className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
-          aria-label="Redo"
-        >
-          <Redo2 className="h-3.5 w-3.5" />
-        </button>
-      </div>
+      {viewMode === "sketch" && (
+        <>
+          <div className="absolute top-3 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
+            <button
+              onClick={undo}
+              disabled={past.length === 0}
+              className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
+              aria-label="Undo"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={redo}
+              disabled={future.length === 0}
+              className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
+              aria-label="Redo"
+            >
+              <Redo2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
 
-      <BottomToolbar
-        tool={bottomTool}
-        onToolChange={(t) => {
-          setBottomTool(t);
-          if (t === "pencil" || t === "text") setRightPanel("style");
-          if (t !== "shapes") setArmedShape(null);
-        }}
-        onPickShape={pickShape}
-      />
+          <BottomToolbar
+            tool={bottomTool}
+            onToolChange={(t) => {
+              setBottomTool(t);
+              if (t === "pencil" || t === "text") setRightPanel("style");
+              if (t !== "shapes") setArmedShape(null);
+            }}
+            onPickShape={pickShape}
+          />
+        </>
+      )}
 
       <div className="relative flex flex-1 flex-col">
         <header className="z-40 flex items-center justify-between px-4 py-3">
@@ -425,15 +442,25 @@ export default function SketchCanvasPage() {
           )}
 
           <div className="flex items-center gap-2">
-            {frames.length > 0 && (
+            {viewMode === "sketch" && frames.length > 0 && (
               <button
-                onClick={() => toast("AI generation is coming soon.")}
+                onClick={() => setFlowStage("questions")}
                 className="flex items-center gap-1.5 rounded-full border border-primary px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 Generate UI
               </button>
             )}
+            <ModeSwitch
+              mode={viewMode}
+              onModeChange={(m) => {
+                if (m === "canvas") {
+                  toast("Canvas mode is coming soon.");
+                  return;
+                }
+                setViewMode(m);
+              }}
+            />
             <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
               <ThemeToggle />
               <button
@@ -458,6 +485,14 @@ export default function SketchCanvasPage() {
           </div>
         </header>
 
+        {viewMode === "present" ? (
+          <PresentModeView
+            generationPrompt={generationPrompt}
+            maxVariations={maxVariations}
+            panel={presentPanel}
+            onPanelChange={setPresentPanel}
+          />
+        ) : (
         <div className="relative flex-1 overflow-hidden">
           <SketchCanvasView
             frames={frames}
@@ -479,6 +514,27 @@ export default function SketchCanvasPage() {
             onCreateConnector={createConnector}
             onZoomChange={(z) => setZoomPct(Math.round(z * 100))}
           />
+
+          {flowStage === "building" && (
+            <AiBuildingOverlay
+              onComplete={() => {
+                setFlowStage("idle");
+                setViewMode("present");
+              }}
+            />
+          )}
+
+          {flowStage === "questions" && (
+            <GenerateQuestionsOverlay
+              onClose={() => setFlowStage("idle")}
+              onComplete={(answers: GenerateAnswers) => {
+                setGenerationPrompt(answers.extraNotes || answers.selections.type || "Build my app");
+                const count = Number(answers.selections.optionsCount);
+                setMaxVariations(count >= 1 && count <= 3 ? count : 3);
+                setFlowStage("building");
+              }}
+            />
+          )}
 
           {activeConnector && fromFrame && toFrame && (
             <ConnectorInteractionBox
@@ -537,6 +593,7 @@ export default function SketchCanvasPage() {
             </button>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

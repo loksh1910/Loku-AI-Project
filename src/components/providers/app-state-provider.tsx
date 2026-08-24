@@ -10,6 +10,12 @@ import {
 
 type AuthMode = "signin" | "signup";
 
+export type RecentProject = {
+  id: string;
+  title: string;
+  editedAt: number;
+};
+
 type AppState = {
   isSignedIn: boolean;
   /** False until localStorage has been read once — lets pages avoid a false
@@ -24,9 +30,12 @@ type AppState = {
   openAuth: (mode?: AuthMode) => void;
   closeAuth: () => void;
   setAuthMode: (mode: AuthMode) => void;
+  recentProjects: RecentProject[];
+  touchRecentProject: (id: string, title: string) => void;
 };
 
 const STORAGE_KEY = "loku-mock-user";
+const PROJECTS_KEY = "loku-recent-projects";
 
 const AppStateContext = createContext<AppState | null>(null);
 
@@ -35,6 +44,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthModeState] = useState<AuthMode>("signin");
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
@@ -43,6 +53,16 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     // default heuristic — the value isn't knowable during server render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored) setUserName(stored);
+
+    const storedProjects = window.localStorage.getItem(PROJECTS_KEY);
+    if (storedProjects) {
+      try {
+        setRecentProjects(JSON.parse(storedProjects));
+      } catch {
+        // ignore malformed storage
+      }
+    }
+
     setHydrated(true);
   }, []);
 
@@ -66,6 +86,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const closeAuth = useCallback(() => setAuthOpen(false), []);
   const setAuthMode = useCallback((mode: AuthMode) => setAuthModeState(mode), []);
 
+  const touchRecentProject = useCallback((id: string, title: string) => {
+    setRecentProjects((prev) => {
+      const next = [
+        { id, title, editedAt: Date.now() },
+        ...prev.filter((p) => p.id !== id),
+      ].slice(0, 8);
+      window.localStorage.setItem(PROJECTS_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   return (
     <AppStateContext.Provider
       value={{
@@ -79,6 +110,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         openAuth,
         closeAuth,
         setAuthMode,
+        recentProjects,
+        touchRecentProject,
       }}
     >
       {children}

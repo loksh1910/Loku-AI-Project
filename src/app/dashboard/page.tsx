@@ -40,7 +40,7 @@ type EntryCard = {
 
 const ENTRY_CARDS: EntryCard[] = [
   { label: "Start from Template", icon: LayoutTemplate, href: "/templates" },
-  { label: "Sketch to UI", icon: PencilRuler },
+  { label: "Sketch to UI", icon: PencilRuler, href: "/sketch" },
   { label: "Sitemap/user flow to UI", icon: Share2 },
   { label: "Start with your design", icon: UploadCloud },
   { label: "Start from Scratch", icon: Plus },
@@ -53,7 +53,7 @@ const SUGGESTIONS = [
 ];
 
 export default function DashboardPage() {
-  const { isSignedIn, hydrated, userName } = useAppState();
+  const { isSignedIn, hydrated, userName, recentProjects } = useAppState();
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [detailTemplate, setDetailTemplate] = useState<Template | null>(null);
@@ -164,12 +164,34 @@ export default function DashboardPage() {
                 Browse all →
               </button>
             </div>
-            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 py-14 text-center text-muted-foreground">
-              <Sparkles className="h-6 w-6 text-primary" />
-              <p className="text-sm">
-                No projects yet — start from a template or a prompt above.
-              </p>
-            </div>
+            {recentProjects.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 py-14 text-center text-muted-foreground">
+                <Sparkles className="h-6 w-6 text-primary" />
+                <p className="text-sm">
+                  No projects yet — start from a template or a prompt above.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                {recentProjects.map((p) => (
+                  <Link
+                    key={p.id}
+                    href="/sketch/canvas"
+                    className="overflow-hidden rounded-xl border border-border/60 bg-card hover:border-primary/50"
+                  >
+                    <div className="flex aspect-[16/10] items-center justify-center bg-gradient-to-br from-[#1c2b5e] to-[#0f1b3d]">
+                      <PencilRuler className="h-6 w-6 text-white/60" />
+                    </div>
+                    <div className="p-2.5">
+                      <p className="truncate text-sm font-medium">{p.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Edited {new Date(p.editedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </section>
 
           <section className="mt-14">

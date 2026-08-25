@@ -49,18 +49,11 @@ export function PresentModeView({
 
   return (
     <div className="relative flex-1 overflow-hidden bg-background">
-      <div className="absolute top-6 left-6 z-30 flex flex-col gap-3">
-        {panel === "screens" && <PresentScreensPanel active={activeScreen} onSelect={onNavigate} />}
-        {panel === "aichat" && <AiAssistantOverlay prompt={generationPrompt} onClose={() => onPanelChange(null)} />}
-        {panel === "split" && (
-          <>
-            <PresentScreensPanel active={activeScreen} onSelect={onNavigate} />
-            <AiAssistantOverlay prompt={generationPrompt} />
-          </>
-        )}
-      </div>
-
-      <div className="flex h-full items-center justify-center pt-10 pr-[210px] pb-[230px] pl-[340px]">
+      {/* The screen is centered on the canvas's true midline — the same
+          center line the bottom prompt bar sits on (both use left-1/2) —
+          matching the Figma reference, where the side panels float over
+          the canvas rather than pushing the centered content off-axis. */}
+      <div className="flex h-full items-center justify-center">
         {compareMode ? (
           <div className="flex items-center gap-10 rounded-[30px] bg-[#18181a] p-8">
             {compareSelection.map((id) => (
@@ -80,15 +73,28 @@ export function PresentModeView({
         )}
       </div>
 
-      <VariationsPanel
-        variationIds={variationIds}
-        selected={selectedVariation}
-        onSelect={setSelectedVariation}
-        compareMode={compareMode}
-        compareSelection={compareSelection}
-        onCompareToggle={() => setCompareMode((v) => !v)}
-        onCompareSelectionChange={setCompareSelection}
-      />
+      <div className="absolute top-6 left-6 z-30 flex flex-col gap-3">
+        {panel === "screens" && <PresentScreensPanel active={activeScreen} onSelect={onNavigate} />}
+        {panel === "aichat" && <AiAssistantOverlay prompt={generationPrompt} onClose={() => onPanelChange(null)} />}
+        {panel === "split" && (
+          <>
+            <PresentScreensPanel active={activeScreen} onSelect={onNavigate} />
+            <AiAssistantOverlay prompt={generationPrompt} />
+          </>
+        )}
+      </div>
+
+      <div className="absolute top-1/2 right-5 z-30 -translate-y-1/2">
+        <VariationsPanel
+          variationIds={variationIds}
+          selected={selectedVariation}
+          onSelect={setSelectedVariation}
+          compareMode={compareMode}
+          compareSelection={compareSelection}
+          onCompareToggle={() => setCompareMode((v) => !v)}
+          onCompareSelectionChange={setCompareSelection}
+        />
+      </div>
 
       <PresentPromptBar taggedElement={taggedElement} onClearTag={() => setTaggedElement(null)} />
     </div>

@@ -17,6 +17,9 @@ import { PresentLeftRail, type PresentPanel } from "@/components/present/present
 import { PresentTopToolbar, type PresentTool } from "@/components/present/present-top-toolbar";
 import type { DeviceMode } from "@/components/present/device-frame";
 import type { HealthScreenId } from "@/components/present/health-app/screens";
+import { CanvasModeView } from "@/components/canvas/canvas-mode-view";
+import { CanvasPipelineBar, PIPELINE_TABS, type PipelineTab } from "@/components/canvas/canvas-pipeline-bar";
+import { defaultVariationRow, type CanvasItem } from "@/components/canvas/canvas-types";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAppState } from "@/components/providers/app-state-provider";
@@ -80,6 +83,11 @@ export default function SketchCanvasPage() {
   const [presentActiveScreen, setPresentActiveScreen] = useState<HealthScreenId>("splash");
   const [presentPast, setPresentPast] = useState<HealthScreenId[]>([]);
   const [presentFuture, setPresentFuture] = useState<HealthScreenId[]>([]);
+  const [canvasPipelineTab, setCanvasPipelineTab] = useState<PipelineTab>("ai");
+  const [canvasPanel, setCanvasPanel] = useState<PresentPanel>("screens");
+  const [canvasItems, setCanvasItems] = useState<CanvasItem[]>(() => defaultVariationRow("bold", 0));
+  const [canvasPast, setCanvasPast] = useState<CanvasItem[][]>([]);
+  const [canvasFuture, setCanvasFuture] = useState<CanvasItem[][]>([]);
 
   function presentNavigate(id: HealthScreenId) {
     setPresentPast((p) => [...p, presentActiveScreen]);
@@ -102,6 +110,36 @@ export default function SketchCanvasPage() {
     setPresentPast((p) => [...p, presentActiveScreen]);
     setPresentActiveScreen(next);
   }
+
+  const canvasCommit = useCallback(
+    (updater: (prev: CanvasItem[]) => CanvasItem[]) => {
+      setCanvasPast((p) => [...p, canvasItems].slice(-50));
+      setCanvasFuture([]);
+      setCanvasItems(updater(canvasItems));
+    },
+    [canvasItems],
+  );
+
+  const canvasBeginChange = useCallback(() => {
+    setCanvasPast((p) => [...p, canvasItems].slice(-50));
+    setCanvasFuture([]);
+  }, [canvasItems]);
+
+  const canvasUndo = useCallback(() => {
+    if (canvasPast.length === 0) return;
+    const prev = canvasPast[canvasPast.length - 1];
+    setCanvasPast((p) => p.slice(0, -1));
+    setCanvasFuture((f) => [canvasItems, ...f]);
+    setCanvasItems(prev);
+  }, [canvasPast, canvasItems]);
+
+  const canvasRedo = useCallback(() => {
+    if (canvasFuture.length === 0) return;
+    const next = canvasFuture[0];
+    setCanvasFuture((f) => f.slice(1));
+    setCanvasPast((p) => [...p, canvasItems]);
+    setCanvasItems(next);
+  }, [canvasFuture, canvasItems]);
 
   useEffect(() => {
     if (hydrated && !isSignedIn) router.replace("/");
@@ -415,10 +453,60 @@ export default function SketchCanvasPage() {
         />
       )}
       {viewMode === "present" && <PresentLeftRail panel={presentPanel} onPanelChange={setPresentPanel} />}
+      {viewMode === "canvas" && <PresentLeftRail panel={canvasPanel} onPanelChange={setCanvasPanel} />}
+
+      {viewMode === "present" && hasGenerated && (
+        <div className="absolute top-3 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2">
+          <PresentTopToolbar
+            tool={presentTool}
+            onToolChange={setPresentTool}
+            deviceMode={presentDeviceMode}
+            onDeviceModeChange={setPresentDeviceMode}
+            onUndo={presentUndo}
+            onRedo={presentRedo}
+            canUndo={presentPast.length > 0}
+            canRedo={presentFuture.length > 0}
+          />
+        </div>
+      )}
+
+      {viewMode === "canvas" && (
+        <div className="absolute top-3 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2">
+          <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
+            <button
+              onClick={canvasUndo}
+              disabled={canvasPast.length === 0}
+              className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
+              aria-label="Undo"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={canvasRedo}
+              disabled={canvasFuture.length === 0}
+              className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
+              aria-label="Redo"
+            >
+              <Redo2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <CanvasPipelineBar
+            tab={canvasPipelineTab}
+            onTabChange={(t) => {
+              if (t !== "ai") {
+                const label = PIPELINE_TABS.find((p) => p.id === t)?.label ?? t;
+                toast(`${label} is coming soon.`);
+                return;
+              }
+              setCanvasPipelineTab(t);
+            }}
+          />
+        </div>
+      )}
 
       {viewMode === "sketch" && (
         <>
-          <div className="absolute top-3 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
+          <div className="absolute top-3 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
             <button
               onClick={undo}
               disabled={past.length === 0}
@@ -482,32 +570,7 @@ export default function SketchCanvasPage() {
                 Generate UI
               </button>
             )}
-            {hasGenerated && (
-              <>
-                {viewMode === "present" && (
-                  <PresentTopToolbar
-                    tool={presentTool}
-                    onToolChange={setPresentTool}
-                    deviceMode={presentDeviceMode}
-                    onDeviceModeChange={setPresentDeviceMode}
-                    onUndo={presentUndo}
-                    onRedo={presentRedo}
-                    canUndo={presentPast.length > 0}
-                    canRedo={presentFuture.length > 0}
-                  />
-                )}
-                <ModeSwitch
-                  mode={viewMode}
-                  onModeChange={(m) => {
-                    if (m === "canvas") {
-                      toast("Canvas mode is coming soon.");
-                      return;
-                    }
-                    setViewMode(m);
-                  }}
-                />
-              </>
-            )}
+            {hasGenerated && <ModeSwitch mode={viewMode} onModeChange={setViewMode} />}
             <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
               <ThemeToggle />
               <button
@@ -542,6 +605,18 @@ export default function SketchCanvasPage() {
             deviceMode={presentDeviceMode}
             activeScreen={presentActiveScreen}
             onNavigate={presentNavigate}
+          />
+        ) : viewMode === "canvas" ? (
+          <CanvasModeView
+            generationPrompt={generationPrompt}
+            panel={canvasPanel}
+            onPanelChange={setCanvasPanel}
+            items={canvasItems}
+            onItemsChange={setCanvasItems}
+            onCommitItems={canvasCommit}
+            onBeginItemsChange={canvasBeginChange}
+            onUndo={canvasUndo}
+            onRedo={canvasRedo}
           />
         ) : (
         <div className="relative flex-1 overflow-hidden">

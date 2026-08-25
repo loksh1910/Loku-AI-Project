@@ -1,35 +1,16 @@
 "use client";
 
 import { Frame, Pencil, Play } from "lucide-react";
+import { SegmentedPillBar, type PillTabItem } from "@/components/ui/segmented-pill-bar";
 
-export type ViewMode = "sketch" | "present" | "canvas";
+export type ViewMode = "sketch" | "canvas" | "present";
 
-const MODES: { id: ViewMode; label: string; icon: typeof Play }[] = [
-  { id: "canvas", label: "Canvas", icon: Frame },
+const MODES: PillTabItem<ViewMode>[] = [
   { id: "sketch", label: "Sketch", icon: Pencil },
+  { id: "canvas", label: "Canvas", icon: Frame },
   { id: "present", label: "Present", icon: Play },
 ];
 
 export function ModeSwitch({ mode, onModeChange }: { mode: ViewMode; onModeChange: (mode: ViewMode) => void }) {
-  const others = MODES.filter((m) => m.id !== mode);
-  const active = MODES.find((m) => m.id === mode)!;
-
-  return (
-    <div className="flex items-center gap-2.5 rounded-full bg-[#1a191f] px-2 py-1.5">
-      {others.map((m) => (
-        <button
-          key={m.id}
-          onClick={() => onModeChange(m.id)}
-          className="text-muted-foreground hover:text-foreground"
-          aria-label={m.label}
-        >
-          <m.icon className="h-3.5 w-3.5" />
-        </button>
-      ))}
-      <div className="flex h-7 items-center justify-center gap-1.5 rounded-full border border-primary px-2.5">
-        <active.icon className="h-3.5 w-3.5 text-white" />
-        <p className="text-xs font-medium text-white">{active.label}</p>
-      </div>
-    </div>
-  );
+  return <SegmentedPillBar items={MODES} active={mode} onChange={onModeChange} />;
 }

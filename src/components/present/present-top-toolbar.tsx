@@ -36,12 +36,12 @@ export function PresentTopToolbar({
   }
 
   return (
-    <div className="flex items-center gap-1.5">
-      <div className="flex items-center gap-1 rounded-full bg-[#1a191f] p-1.5">
+    <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
         <button
           onClick={onUndo}
           disabled={!canUndo}
-          className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
           aria-label="Undo"
         >
           <Undo2 className="h-3.5 w-3.5" />
@@ -49,17 +49,17 @@ export function PresentTopToolbar({
         <button
           onClick={onRedo}
           disabled={!canRedo}
-          className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
           aria-label="Redo"
         >
           <Redo2 className="h-3.5 w-3.5" />
         </button>
       </div>
-      <div className="flex items-center gap-1.5 rounded-full bg-[#1a191f] p-1.5">
+      <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
         <button
           onClick={() => onToolChange("pointer")}
           className={cn(
-            "rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground",
+            "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
             tool === "pointer" && "bg-primary/15 text-primary",
           )}
           aria-label="Pointer"
@@ -69,7 +69,7 @@ export function PresentTopToolbar({
         <button
           onClick={() => onToolChange("select")}
           className={cn(
-            "rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground",
+            "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
             tool === "select" && "bg-primary/15 text-primary",
           )}
           aria-label="Select element"
@@ -79,7 +79,7 @@ export function PresentTopToolbar({
         <button
           onClick={() => onToolChange("edit")}
           className={cn(
-            "rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground",
+            "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
             tool === "edit" && "bg-primary/15 text-primary",
           )}
           aria-label="Edit text"
@@ -88,7 +88,7 @@ export function PresentTopToolbar({
         </button>
         <button
           onClick={cycleDevice}
-          className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
           aria-label="Device mode"
         >
           <DeviceIcon className="h-3.5 w-3.5" />

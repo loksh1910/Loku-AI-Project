@@ -41,7 +41,7 @@ export function VariationsPanel({
   }
 
   return (
-    <div ref={rootRef} className="absolute top-1/2 right-5 z-30 flex w-[150px] -translate-y-1/2 flex-col items-start gap-2.5">
+    <div ref={rootRef} className="z-30 flex w-[150px] flex-col items-start gap-2.5">
       <div className="relative w-full">
         <button
           onClick={() => (compareMode ? onCompareToggle() : setPickerOpen((v) => !v))}

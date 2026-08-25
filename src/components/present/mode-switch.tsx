@@ -15,7 +15,7 @@ export function ModeSwitch({ mode, onModeChange }: { mode: ViewMode; onModeChang
   const active = MODES.find((m) => m.id === mode)!;
 
   return (
-    <div className="flex items-center gap-3.5 rounded-full bg-[#1a191f] p-1.5">
+    <div className="flex items-center gap-2.5 rounded-full bg-[#1a191f] px-2 py-1.5">
       {others.map((m) => (
         <button
           key={m.id}
@@ -23,11 +23,11 @@ export function ModeSwitch({ mode, onModeChange }: { mode: ViewMode; onModeChang
           className="text-muted-foreground hover:text-foreground"
           aria-label={m.label}
         >
-          <m.icon className="h-[18px] w-[18px]" />
+          <m.icon className="h-3.5 w-3.5" />
         </button>
       ))}
-      <div className="flex h-9 items-center justify-center gap-1.5 rounded-full border border-primary px-2.5">
-        <active.icon className="h-[15px] w-[15px] text-white" />
+      <div className="flex h-7 items-center justify-center gap-1.5 rounded-full border border-primary px-2.5">
+        <active.icon className="h-3.5 w-3.5 text-white" />
         <p className="text-xs font-medium text-white">{active.label}</p>
       </div>
     </div>

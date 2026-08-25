@@ -14,6 +14,9 @@ import { AiBuildingOverlay } from "@/components/sketch/ai-building-overlay";
 import { PresentModeView } from "@/components/present/present-mode-view";
 import { ModeSwitch, type ViewMode } from "@/components/present/mode-switch";
 import { PresentLeftRail, type PresentPanel } from "@/components/present/present-left-rail";
+import { PresentTopToolbar, type PresentTool } from "@/components/present/present-top-toolbar";
+import type { DeviceMode } from "@/components/present/device-frame";
+import type { HealthScreenId } from "@/components/present/health-app/screens";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAppState } from "@/components/providers/app-state-provider";
@@ -71,6 +74,34 @@ export default function SketchCanvasPage() {
   const [generationPrompt, setGenerationPrompt] = useState("");
   const [maxVariations, setMaxVariations] = useState(3);
   const [presentPanel, setPresentPanel] = useState<PresentPanel>("screens");
+  const [hasGenerated, setHasGenerated] = useState(false);
+  const [presentTool, setPresentTool] = useState<PresentTool>("pointer");
+  const [presentDeviceMode, setPresentDeviceMode] = useState<DeviceMode>("mobile");
+  const [presentActiveScreen, setPresentActiveScreen] = useState<HealthScreenId>("splash");
+  const [presentPast, setPresentPast] = useState<HealthScreenId[]>([]);
+  const [presentFuture, setPresentFuture] = useState<HealthScreenId[]>([]);
+
+  function presentNavigate(id: HealthScreenId) {
+    setPresentPast((p) => [...p, presentActiveScreen]);
+    setPresentFuture([]);
+    setPresentActiveScreen(id);
+  }
+
+  function presentUndo() {
+    if (presentPast.length === 0) return;
+    const prev = presentPast[presentPast.length - 1];
+    setPresentPast((p) => p.slice(0, -1));
+    setPresentFuture((f) => [presentActiveScreen, ...f]);
+    setPresentActiveScreen(prev);
+  }
+
+  function presentRedo() {
+    if (presentFuture.length === 0) return;
+    const next = presentFuture[0];
+    setPresentFuture((f) => f.slice(1));
+    setPresentPast((p) => [...p, presentActiveScreen]);
+    setPresentActiveScreen(next);
+  }
 
   useEffect(() => {
     if (hydrated && !isSignedIn) router.replace("/");
@@ -451,16 +482,32 @@ export default function SketchCanvasPage() {
                 Generate UI
               </button>
             )}
-            <ModeSwitch
-              mode={viewMode}
-              onModeChange={(m) => {
-                if (m === "canvas") {
-                  toast("Canvas mode is coming soon.");
-                  return;
-                }
-                setViewMode(m);
-              }}
-            />
+            {hasGenerated && (
+              <>
+                {viewMode === "present" && (
+                  <PresentTopToolbar
+                    tool={presentTool}
+                    onToolChange={setPresentTool}
+                    deviceMode={presentDeviceMode}
+                    onDeviceModeChange={setPresentDeviceMode}
+                    onUndo={presentUndo}
+                    onRedo={presentRedo}
+                    canUndo={presentPast.length > 0}
+                    canRedo={presentFuture.length > 0}
+                  />
+                )}
+                <ModeSwitch
+                  mode={viewMode}
+                  onModeChange={(m) => {
+                    if (m === "canvas") {
+                      toast("Canvas mode is coming soon.");
+                      return;
+                    }
+                    setViewMode(m);
+                  }}
+                />
+              </>
+            )}
             <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
               <ThemeToggle />
               <button
@@ -491,6 +538,10 @@ export default function SketchCanvasPage() {
             maxVariations={maxVariations}
             panel={presentPanel}
             onPanelChange={setPresentPanel}
+            tool={presentTool}
+            deviceMode={presentDeviceMode}
+            activeScreen={presentActiveScreen}
+            onNavigate={presentNavigate}
           />
         ) : (
         <div className="relative flex-1 overflow-hidden">
@@ -519,6 +570,7 @@ export default function SketchCanvasPage() {
             <AiBuildingOverlay
               onComplete={() => {
                 setFlowStage("idle");
+                setHasGenerated(true);
                 setViewMode("present");
               }}
             />

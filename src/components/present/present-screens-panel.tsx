@@ -31,12 +31,12 @@ export function PresentScreensPanel({
             key={id}
             onClick={() => onSelect(id)}
             className={cn(
-              "flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-secondary",
+              "flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-secondary",
               active === id && "bg-primary/30",
             )}
           >
             <span className="flex items-center gap-3">
-              <span className="w-5 shrink-0 text-xs text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
+              <span className="w-5 shrink-0 text-[10px] text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
               <span className="text-white">{HEALTH_SCREENS[id].name}</span>
             </span>
             <Eye className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />

@@ -44,7 +44,7 @@ export function PresentTopToolbar({
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
           aria-label="Undo"
         >
-          <Undo2 className="h-5 w-5" />
+          <Undo2 className="h-3.5 w-3.5" />
         </button>
         <button
           onClick={onRedo}
@@ -52,46 +52,46 @@ export function PresentTopToolbar({
           className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
           aria-label="Redo"
         >
-          <Redo2 className="h-5 w-5" />
+          <Redo2 className="h-3.5 w-3.5" />
         </button>
       </div>
-      <div className="flex items-center gap-2.5 rounded-full bg-[#1a191f] p-1.5">
+      <div className="flex items-center gap-1.5 rounded-full bg-[#1a191f] p-1.5">
         <button
           onClick={() => onToolChange("pointer")}
           className={cn(
-            "rounded-full p-2 text-muted-foreground hover:bg-secondary hover:text-foreground",
+            "rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground",
             tool === "pointer" && "bg-primary/15 text-primary",
           )}
           aria-label="Pointer"
         >
-          <MousePointer2 className="h-5 w-5" />
+          <MousePointer2 className="h-3.5 w-3.5" />
         </button>
         <button
           onClick={() => onToolChange("select")}
           className={cn(
-            "rounded-full p-2 text-muted-foreground hover:bg-secondary hover:text-foreground",
+            "rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground",
             tool === "select" && "bg-primary/15 text-primary",
           )}
           aria-label="Select element"
         >
-          <BoxSelect className="h-[15px] w-[15px]" />
+          <BoxSelect className="h-3.5 w-3.5" />
         </button>
         <button
           onClick={() => onToolChange("edit")}
           className={cn(
-            "rounded-full p-2 text-muted-foreground hover:bg-secondary hover:text-foreground",
+            "rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground",
             tool === "edit" && "bg-primary/15 text-primary",
           )}
           aria-label="Edit text"
         >
-          <Pencil className="h-5 w-5" />
+          <Pencil className="h-3.5 w-3.5" />
         </button>
         <button
           onClick={cycleDevice}
-          className="rounded-full p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
+          className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
           aria-label="Device mode"
         >
-          <DeviceIcon className="h-[15px] w-[15px]" />
+          <DeviceIcon className="h-3.5 w-3.5" />
         </button>
       </div>
     </div>

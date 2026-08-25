@@ -15,7 +15,7 @@ export function PresentPromptBar({ taggedElement, onClearTag }: { taggedElement?
       <button
         onClick={() => setCollapsed(false)}
         aria-label="Expand prompt bar"
-        className="absolute bottom-6 left-1/2 z-30 flex h-9 w-16 -translate-x-1/2 items-center justify-center rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF]"
+        className="absolute bottom-6 left-1/2 z-30 flex h-6 w-16 -translate-x-1/2 items-center justify-center rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF]"
       >
         <ChevronUp className="h-4 w-4 text-white" />
       </button>

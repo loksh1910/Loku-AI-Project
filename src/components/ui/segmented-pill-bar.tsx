@@ -30,7 +30,7 @@ export function SegmentedPillBar<T extends string>({
             key={item.id}
             onClick={() => onChange(item.id)}
             className={cn(
-              "flex h-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
+              "flex h-8 items-center justify-center rounded-full text-muted-foreground transition-all duration-200 hover:bg-secondary hover:text-foreground",
               isActive
                 ? "gap-1.5 border border-primary px-2.5 text-white hover:bg-transparent hover:text-white"
                 : "w-8",

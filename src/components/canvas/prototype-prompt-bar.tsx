@@ -1,0 +1,146 @@
+"use client";
+
+import { useState } from "react";
+import { ArrowRight, ChevronDown, Mic, Workflow, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { ApplyOn } from "@/components/canvas/prototype-types";
+
+const SUGGESTIONS = ["make all buttons open as modal", "Apply slide animation between all screens"];
+
+const APPLY_ON_OPTIONS: { id: ApplyOn; label: string; noun: string }[] = [
+  { id: "actions", label: "All Actions", noun: "Actions" },
+  { id: "elements", label: "All Elements", noun: "Elements" },
+  { id: "selected", label: "Selected", noun: "Elements" },
+];
+
+export function PrototypePromptBar({
+  applyOn,
+  onApplyOnChange,
+  totalCount,
+  selectedCount,
+  taggedElement,
+  onClearTag,
+}: {
+  applyOn: ApplyOn;
+  onApplyOnChange: (applyOn: ApplyOn) => void;
+  totalCount: number;
+  selectedCount: number;
+  taggedElement?: string | null;
+  onClearTag?: () => void;
+}) {
+  const [collapsed, setCollapsed] = useState(true);
+  const [value, setValue] = useState("");
+  const [applyOpen, setApplyOpen] = useState(false);
+
+  if (collapsed) {
+    return (
+      <button
+        onClick={() => setCollapsed(false)}
+        className="absolute bottom-6 left-1/2 z-30 flex h-8 -translate-x-1/2 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF] px-4 text-xs font-medium text-white"
+      >
+        <Workflow className="h-3.5 w-3.5" />
+        Edit Flows
+      </button>
+    );
+  }
+
+  const current = APPLY_ON_OPTIONS.find((o) => o.id === applyOn)!;
+  const count = applyOn === "selected" ? selectedCount : totalCount;
+  const placeholder =
+    applyOn === "actions"
+      ? "Edit interactions across all Actions..."
+      : applyOn === "elements"
+        ? "Edit interactions across all Elements..."
+        : "Edit interactions across all selected elements or actions...";
+
+  return (
+    <div className="absolute bottom-4 left-1/2 z-30 w-[626px] -translate-x-1/2">
+      <button
+        onClick={() => setCollapsed(true)}
+        aria-label="Collapse prompt bar"
+        className="absolute -top-3 left-1/2 z-10 flex h-6 w-16 -translate-x-1/2 items-center justify-center rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF]"
+      >
+        <ChevronDown className="h-4 w-4 text-white" />
+      </button>
+
+      <div className="rounded-3xl bg-[#18181a] p-4">
+        {taggedElement && (
+          <div className="mb-2 flex w-fit items-center gap-1.5 rounded-full bg-primary/15 px-2.5 py-1 text-[10px] text-primary">
+            {taggedElement}
+            <button onClick={onClearTag} aria-label="Remove tag">
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={placeholder}
+          className="w-full bg-transparent text-sm text-white/70 outline-none placeholder:text-white/70"
+        />
+        <div className="mt-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-white/70">
+            <span className="text-xs">Apply on:</span>
+            <div className="relative">
+              <button
+                onClick={() => setApplyOpen((v) => !v)}
+                className="flex items-center gap-1 rounded-full border border-white/30 px-2.5 py-1 text-xs font-medium text-white"
+              >
+                {current.label}
+                <ChevronDown className="h-3 w-3" />
+              </button>
+              {applyOpen && (
+                <div className="absolute bottom-full left-0 z-10 mb-2 w-[140px] rounded-xl border border-border/60 bg-popover p-1.5 shadow-xl">
+                  {APPLY_ON_OPTIONS.map((o) => (
+                    <button
+                      key={o.id}
+                      onClick={() => {
+                        onApplyOnChange(o.id);
+                        setApplyOpen(false);
+                      }}
+                      className={cn(
+                        "block w-full rounded-lg px-2 py-1.5 text-left text-xs hover:bg-secondary",
+                        applyOn === o.id && "text-primary",
+                      )}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <span className="text-xs whitespace-nowrap text-white/50">
+              Selected {current.noun} ({count})
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button className="flex items-center gap-1 rounded-full border border-white/70 px-3 py-2 text-xs font-medium text-white/70">
+              Model
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+            <button aria-label="Voice input" className="text-white/70">
+              <Mic className="h-4 w-4" />
+            </button>
+            <button
+              aria-label="Submit"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF] text-white"
+            >
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2.5">
+        {SUGGESTIONS.map((s) => (
+          <button
+            key={s}
+            className="rounded-full border border-white/20 px-4 py-1.5 text-xs font-medium text-white/60 hover:border-white/40 hover:text-white/80"
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}

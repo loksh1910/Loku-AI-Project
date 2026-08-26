@@ -10,15 +10,31 @@ import { PresentPromptBar } from "@/components/present/present-prompt-bar";
 import { DeviceFrame } from "@/components/present/device-frame";
 import { VARIATION_THEMES, type VariationId } from "@/components/present/health-app/theme";
 import { HEALTH_SCREENS } from "@/components/present/health-app/screens";
+import { WIREFRAME_SCREENS } from "@/components/present/health-app/wireframe-screens";
 import { CanvasRightToolbar } from "@/components/canvas/canvas-right-toolbar";
 import { CanvasVariationsMenu } from "@/components/canvas/canvas-variations-menu";
 import { CANVAS_DEVICE_W, defaultVariationRow, type CanvasItem, type CanvasTool } from "@/components/canvas/canvas-types";
+import type { PipelineTab } from "@/components/canvas/canvas-pipeline-bar";
+import { ShowAllFlowToggle } from "@/components/canvas/show-all-flow-toggle";
+import { PrototypePromptBar } from "@/components/canvas/prototype-prompt-bar";
+import { PrototypeInteractionBox } from "@/components/canvas/prototype-interaction-box";
+import { INTERACTION_TEMPLATES, type ApplyOn, type PrototypeInteraction } from "@/components/canvas/prototype-types";
 
 const MIN_ZOOM = 0.3;
 const MAX_ZOOM = 2.5;
 const ALL_VARIATIONS: VariationId[] = ["bold", "playful", "minimal"];
+// The wire layer is a sibling of the pannable content, itself anchored at a
+// 0-size point (top-1/2 left-1/2) — giving it a real, generously oversized
+// box (rather than relying on an svg's own overflow-visible) means wire arcs
+// never get silently clipped regardless of where screens sit in the canvas.
+const WIRE_CANVAS_PAD = 4000;
 
 type DragState = { instanceId: string; startX: number; startY: number; startClientX: number; startClientY: number };
+type ScreenItem = Extract<CanvasItem, { kind: "screen" }>;
+
+function isScreenItem(item: CanvasItem): item is ScreenItem {
+  return item.kind === "screen";
+}
 
 export function CanvasModeView({
   generationPrompt,
@@ -30,6 +46,7 @@ export function CanvasModeView({
   onBeginItemsChange,
   onUndo,
   onRedo,
+  pipelineTab,
 }: {
   generationPrompt: string;
   panel: PresentPanel;
@@ -40,7 +57,15 @@ export function CanvasModeView({
   onBeginItemsChange: () => void;
   onUndo: () => void;
   onRedo: () => void;
+  pipelineTab: PipelineTab;
 }) {
+  const isPrototype = pipelineTab === "prototype";
+  const isWireframe = pipelineTab === "wireframe";
+  // The wire/interaction system (Show all flow, connector wires, the
+  // Interaction float box) is shared by Prototype and Wireframe — only the
+  // toolbar restriction and the bottom bar swap are Prototype-only.
+  const hasFlowWires = isPrototype || isWireframe;
+
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [zoomPct, setZoomPct] = useState(100);
@@ -52,14 +77,55 @@ export function CanvasModeView({
 
   const [tool, setTool] = useState<CanvasTool>("pointer");
   const [variations, setVariations] = useState<VariationId[]>(() => {
-    const present = new Set(
-      items.filter((i): i is Extract<CanvasItem, { kind: "screen" }> => i.kind === "screen").map((i) => i.variation),
-    );
+    const present = new Set(items.filter(isScreenItem).map((i) => i.variation));
     const ordered = ALL_VARIATIONS.filter((v) => present.has(v));
     return ordered.length > 0 ? ordered : ["bold"];
   });
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [renamingId, setRenamingId] = useState<string | null>(null);
+
+  // Prototype-mode state
+  const [showAllFlow, setShowAllFlow] = useState(false);
+  const [focusedInstanceId, setFocusedInstanceId] = useState<string | null>(null);
+  const [interactions, setInteractions] = useState<PrototypeInteraction[]>([]);
+  const [activeInteraction, setActiveInteraction] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [applyOn, setApplyOn] = useState<ApplyOn>("actions");
+  const [selectingPending, setSelectingPending] = useState(false);
+  const [pendingSelection, setPendingSelection] = useState<string[]>([]);
+  const [confirmedSelection, setConfirmedSelection] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Prototype's toolbar only exposes pointer + hand — if the user had
+    // "select" or "edit" active in AI/Wireframe mode and switches into
+    // Prototype, fall back to pointer since that tool no longer exists.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting to a valid tool when entering a mode whose toolbar no longer includes the current tool, not deriving per-render state
+    if (isPrototype && tool !== "pointer" && tool !== "hand") setTool("pointer");
+  }, [isPrototype, tool]);
+
+  // Reconciles the editable interaction list against whatever screen instances
+  // currently exist (drag/delete/variation changes don't touch this — only
+  // membership does), while preserving any interaction the user has edited.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing derived interactions to the current set of screen instances, not per-render state
+    setInteractions((prev) => {
+      const screenItems = items.filter(isScreenItem);
+      const presentIds = new Set(screenItems.map((i) => i.instanceId));
+      const kept = prev.filter((it) => presentIds.has(it.sourceInstanceId) && presentIds.has(it.targetInstanceId));
+      const keptIds = new Set(kept.map((it) => it.id));
+      const added: PrototypeInteraction[] = [];
+      screenItems.forEach((item) => {
+        INTERACTION_TEMPLATES.filter((t) => t.sourceScreenId === item.screenId).forEach((t) => {
+          const targetItem = screenItems.find((i) => i.variation === item.variation && i.screenId === t.targetScreenId);
+          if (!targetItem) return;
+          const id = `${item.instanceId}->${t.id}`;
+          if (keptIds.has(id)) return;
+          added.push({ ...t, id, sourceInstanceId: item.instanceId, targetInstanceId: targetItem.instanceId });
+        });
+      });
+      if (added.length === 0 && kept.length === prev.length) return prev;
+      return [...kept, ...added];
+    });
+  }, [items]);
 
   useEffect(() => {
     zoomRef.current = zoom;
@@ -118,7 +184,10 @@ export function CanvasModeView({
       panStart.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
       return;
     }
-    if (e.target === e.currentTarget) setSelectedIds([]);
+    if (e.target === e.currentTarget) {
+      setSelectedIds([]);
+      setFocusedInstanceId(null);
+    }
   }
 
   function handleViewportPointerMove(e: React.PointerEvent) {
@@ -146,6 +215,13 @@ export function CanvasModeView({
     if (tool === "hand") return;
     e.stopPropagation();
 
+    if (isPrototype && selectingPending) {
+      setPendingSelection((prev) =>
+        prev.includes(item.instanceId) ? prev.filter((id) => id !== item.instanceId) : [...prev, item.instanceId],
+      );
+      return;
+    }
+
     if (tool === "select") {
       setSelectedIds((prev) =>
         prev.includes(item.instanceId) ? prev.filter((id) => id !== item.instanceId) : [...prev, item.instanceId],
@@ -154,6 +230,20 @@ export function CanvasModeView({
     }
 
     setSelectedIds([item.instanceId]);
+    if (hasFlowWires) {
+      setFocusedInstanceId(item.instanceId);
+      const outgoing = interactions.filter((it) => it.sourceInstanceId === item.instanceId);
+      if (outgoing.length === 1) {
+        const rect = viewportRef.current?.getBoundingClientRect();
+        setActiveInteraction({
+          id: outgoing[0].id,
+          x: (rect?.width ?? 0) / 2 + pan.x + (item.x + CANVAS_DEVICE_W / 2) * zoom + 16,
+          y: (rect?.height ?? 0) / 2 + pan.y + item.y * zoom,
+        });
+      } else {
+        setActiveInteraction(null);
+      }
+    }
     onBeginItemsChange();
     dragRef.current = {
       instanceId: item.instanceId,
@@ -168,9 +258,7 @@ export function CanvasModeView({
     const orderedNew = ALL_VARIATIONS.filter((v) => newIds.includes(v));
     onCommitItems((prev) => {
       const kept = prev.filter((item) => item.kind !== "screen" || orderedNew.includes(item.variation));
-      const keptVariations = new Set(
-        kept.filter((i): i is Extract<CanvasItem, { kind: "screen" }> => i.kind === "screen").map((i) => i.variation),
-      );
+      const keptVariations = new Set(kept.filter(isScreenItem).map((i) => i.variation));
       const missing = orderedNew.filter((v) => !keptVariations.has(v));
       const added = missing.flatMap((v) => defaultVariationRow(v, orderedNew.indexOf(v)));
       return [...kept, ...added];
@@ -193,6 +281,50 @@ export function CanvasModeView({
     setSelectedIds([id]);
   }
 
+  function handleApplyOnChange(next: ApplyOn) {
+    setApplyOn(next);
+    setActiveInteraction(null);
+    if (next === "actions") {
+      setShowAllFlow(true);
+      setSelectingPending(false);
+    } else if (next === "elements") {
+      setShowAllFlow(false);
+      setSelectingPending(false);
+    } else {
+      setShowAllFlow(false);
+      setPendingSelection([]);
+      setSelectingPending(true);
+    }
+  }
+
+  function confirmPendingSelection() {
+    setConfirmedSelection(pendingSelection);
+    setSelectingPending(false);
+  }
+
+  const screenItemsList = items.filter(isScreenItem);
+  const anchorFor = (instanceId: string, indexInGroup: number, groupSize: number) => {
+    const item = screenItemsList.find((i) => i.instanceId === instanceId);
+    if (!item) return null;
+    const spread = (indexInGroup - (groupSize - 1) / 2) * 16;
+    return {
+      x: (item.x + CANVAS_DEVICE_W / 2) * zoom + spread + WIRE_CANVAS_PAD,
+      y: item.y * zoom + WIRE_CANVAS_PAD,
+    };
+  };
+
+  const visibleInteractions = showAllFlow
+    ? interactions
+    : interactions.filter((it) => it.sourceInstanceId === focusedInstanceId);
+
+  const outgoingCountByScreen = new Map<string, number>();
+  const outgoingIndexByInteraction = new Map<string, number>();
+  visibleInteractions.forEach((it) => {
+    const n = outgoingCountByScreen.get(it.sourceInstanceId) ?? 0;
+    outgoingIndexByInteraction.set(it.id, n);
+    outgoingCountByScreen.set(it.sourceInstanceId, n + 1);
+  });
+
   const selectedItems = items.filter((i) => selectedIds.includes(i.instanceId));
   const taggedElement =
     selectedItems.length === 0
@@ -203,9 +335,14 @@ export function CanvasModeView({
           : selectedItems[0].name
         : `${selectedItems.length} screens selected`;
 
-  const screensActive =
-    (items.find((i) => i.kind === "screen") as Extract<CanvasItem, { kind: "screen" }> | undefined)?.screenId ??
-    "splash";
+  const prototypeTag =
+    applyOn === "selected"
+      ? confirmedSelection.length > 0
+        ? `${confirmedSelection.length} selected`
+        : null
+      : null;
+
+  const screensActive = screenItemsList[0]?.screenId ?? "splash";
 
   return (
     <div className="relative flex-1 overflow-hidden bg-background">
@@ -221,6 +358,11 @@ export function CanvasModeView({
           {items.map((item) => {
             const isSelected = selectedIds.includes(item.instanceId);
             const w = item.kind === "screen" ? CANVAS_DEVICE_W : item.w;
+            const dimmed =
+              isPrototype &&
+              selectingPending &&
+              item.kind === "screen" &&
+              !pendingSelection.includes(item.instanceId);
             return (
               <div key={item.instanceId} className="absolute" style={{ left: item.x * zoom, top: item.y * zoom }}>
                 {renamingId === item.instanceId ? (
@@ -253,13 +395,23 @@ export function CanvasModeView({
                 <div
                   onPointerDown={(e) => handleItemPointerDown(e, item)}
                   className={cn(
-                    "origin-top-left touch-none",
+                    "origin-top-left touch-none transition-opacity",
                     isSelected && (item.kind === "screen" ? "rounded-[36px] ring-2 ring-primary" : "rounded-lg ring-2 ring-primary"),
+                    dimmed && "opacity-25",
+                    isPrototype && selectingPending && pendingSelection.includes(item.instanceId) && "rounded-[36px] ring-2 ring-primary",
                   )}
                   style={{ transform: `scale(${zoom})` }}
                 >
                   {item.kind === "screen" ? (
                     (() => {
+                      if (isWireframe) {
+                        const WireframeComponent = WIREFRAME_SCREENS[item.screenId];
+                        return (
+                          <DeviceFrame mode="mobile">
+                            <WireframeComponent />
+                          </DeviceFrame>
+                        );
+                      }
                       const ScreenComponent = HEALTH_SCREENS[item.screenId].Component;
                       return (
                         <DeviceFrame mode="mobile">
@@ -280,6 +432,52 @@ export function CanvasModeView({
               </div>
             );
           })}
+
+          {hasFlowWires && visibleInteractions.length > 0 && (
+            <svg
+              className="pointer-events-none absolute overflow-visible"
+              style={{ left: -WIRE_CANVAS_PAD, top: -WIRE_CANVAS_PAD, width: WIRE_CANVAS_PAD * 2, height: WIRE_CANVAS_PAD * 2 }}
+            >
+              {visibleInteractions.map((it) => {
+                const groupSize = outgoingCountByScreen.get(it.sourceInstanceId) ?? 1;
+                const idx = outgoingIndexByInteraction.get(it.id) ?? 0;
+                const from = anchorFor(it.sourceInstanceId, idx, groupSize);
+                const to = anchorFor(it.targetInstanceId, 0, 1);
+                if (!from || !to) return null;
+                const archHeight = Math.min(60, Math.abs(to.x - from.x) * 0.15) + 24;
+                const d = `M ${from.x} ${from.y} C ${from.x} ${from.y - archHeight}, ${to.x} ${to.y - archHeight}, ${to.x} ${to.y}`;
+                const isActive = activeInteraction?.id === it.id;
+                return (
+                  <g key={it.id}>
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke="#8E51FF"
+                      strokeWidth={isActive ? 2.5 : 1.5}
+                      opacity={activeInteraction && !isActive ? 0.35 : 0.9}
+                    />
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke="transparent"
+                      strokeWidth={14}
+                      className="pointer-events-auto cursor-pointer"
+                      onClick={(e) => {
+                        const rect = viewportRef.current?.getBoundingClientRect();
+                        setActiveInteraction({
+                          id: it.id,
+                          x: e.clientX - (rect?.left ?? 0) + 16,
+                          y: e.clientY - (rect?.top ?? 0),
+                        });
+                      }}
+                    />
+                    <rect x={from.x - 3} y={from.y - 3} width={6} height={6} fill="#8E51FF" />
+                    <rect x={to.x - 3} y={to.y - 3} width={6} height={6} fill="#8E51FF" />
+                  </g>
+                );
+              })}
+            </svg>
+          )}
         </div>
       </div>
 
@@ -287,12 +485,20 @@ export function CanvasModeView({
         <CanvasVariationsMenu variationIds={ALL_VARIATIONS} active={variations} onApply={applyVariations} />
       </div>
 
-      <div className="absolute top-1/2 right-5 z-30 -translate-y-1/2">
-        <CanvasRightToolbar tool={tool} onToolChange={setTool} onAddFiles={() => fileInputRef.current?.click()} />
+      <div
+        className="absolute top-1/2 right-5 z-30 -translate-y-1/2"
+      >
+        <CanvasRightToolbar
+          tool={tool}
+          onToolChange={setTool}
+          onAddFiles={() => fileInputRef.current?.click()}
+          tools={isPrototype ? ["pointer", "hand"] : undefined}
+        />
       </div>
       <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleFilesSelected} />
 
-      <div className="absolute top-6 left-6 z-30 flex flex-col gap-3">
+      <div className="absolute top-6 left-6 z-30 flex flex-col items-start gap-3">
+        {hasFlowWires && <ShowAllFlowToggle checked={showAllFlow} onChange={setShowAllFlow} />}
         {panel === "screens" && (
           <PresentScreensPanel
             active={screensActive}
@@ -317,7 +523,42 @@ export function CanvasModeView({
         )}
       </div>
 
-      <PresentPromptBar taggedElement={taggedElement} onClearTag={() => setSelectedIds([])} />
+      {isPrototype && selectingPending && (
+        <div className="absolute top-6 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full border border-border/60 bg-card py-1.5 pr-1.5 pl-4 text-xs">
+          Select elements or interactions to apply changes
+          <button
+            onClick={confirmPendingSelection}
+            className="rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF] px-3 py-1.5 text-xs font-semibold text-white"
+          >
+            Select ({pendingSelection.length})
+          </button>
+        </div>
+      )}
+
+      {hasFlowWires && activeInteraction && (
+        <PrototypeInteractionBox
+          interaction={interactions.find((it) => it.id === activeInteraction.id)!}
+          x={activeInteraction.x}
+          y={activeInteraction.y}
+          onChange={(patch) =>
+            setInteractions((prev) => prev.map((it) => (it.id === activeInteraction.id ? { ...it, ...patch } : it)))
+          }
+          onClose={() => setActiveInteraction(null)}
+        />
+      )}
+
+      {isPrototype ? (
+        <PrototypePromptBar
+          applyOn={applyOn}
+          onApplyOnChange={handleApplyOnChange}
+          totalCount={INTERACTION_TEMPLATES.length}
+          selectedCount={confirmedSelection.length}
+          taggedElement={prototypeTag}
+          onClearTag={() => setConfirmedSelection([])}
+        />
+      ) : (
+        <PresentPromptBar taggedElement={taggedElement} onClearTag={() => setSelectedIds([])} />
+      )}
 
       <div className="absolute right-4 bottom-4 z-30 flex items-center gap-2 text-muted-foreground">
         <span className="rounded-full border border-border/60 bg-card px-2.5 py-1 text-xs">{zoomPct}%</span>

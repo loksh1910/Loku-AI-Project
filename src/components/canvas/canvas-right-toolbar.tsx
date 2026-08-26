@@ -15,14 +15,20 @@ export function CanvasRightToolbar({
   tool,
   onToolChange,
   onAddFiles,
+  tools,
 }: {
   tool: CanvasTool;
   onToolChange: (tool: CanvasTool) => void;
-  onAddFiles: () => void;
+  onAddFiles?: () => void;
+  /** Restricts which tools render, in order — e.g. Prototype mode only exposes pointer + hand. Defaults to the full set plus "add files". */
+  tools?: CanvasTool[];
 }) {
+  const visibleTools = tools ? TOOLS.filter((t) => tools.includes(t.id)) : TOOLS;
+  const showAddFiles = !tools;
+
   return (
     <div className="flex flex-col items-center gap-1 rounded-full border border-border/60 bg-card px-1 py-1.5">
-      {TOOLS.map((t) => (
+      {visibleTools.map((t) => (
         <button
           key={t.id}
           onClick={() => onToolChange(t.id)}
@@ -35,13 +41,15 @@ export function CanvasRightToolbar({
           <t.icon className="h-3.5 w-3.5" />
         </button>
       ))}
-      <button
-        onClick={onAddFiles}
-        className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
-        aria-label="Add files to canvas"
-      >
-        <Plus className="h-3.5 w-3.5" />
-      </button>
+      {showAddFiles && (
+        <button
+          onClick={onAddFiles}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+          aria-label="Add files to canvas"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   );
 }

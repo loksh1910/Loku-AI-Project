@@ -20,6 +20,10 @@ import type { HealthScreenId } from "@/components/present/health-app/screens";
 import { CanvasModeView } from "@/components/canvas/canvas-mode-view";
 import { CanvasPipelineBar, PIPELINE_TABS, type PipelineTab } from "@/components/canvas/canvas-pipeline-bar";
 import { defaultVariationRow, type CanvasItem } from "@/components/canvas/canvas-types";
+import { UserFlowView } from "@/components/canvas/user-flow-view";
+import { buildDefaultFlow, buildDefaultSitemap, type FlowEdge, type FlowNode } from "@/components/canvas/flow-types";
+import { ManualEditView } from "@/components/canvas/manual-edit-view";
+import type { ManualElement, ManualFrame } from "@/components/canvas/manual-types";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAppState } from "@/components/providers/app-state-provider";
@@ -88,6 +92,16 @@ export default function SketchCanvasPage() {
   const [canvasItems, setCanvasItems] = useState<CanvasItem[]>(() => defaultVariationRow("bold", 0));
   const [canvasPast, setCanvasPast] = useState<CanvasItem[][]>([]);
   const [canvasFuture, setCanvasFuture] = useState<CanvasItem[][]>([]);
+  const [flowGraph, setFlowGraph] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }>(() => buildDefaultFlow());
+  const [flowPast, setFlowPast] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }[]>([]);
+  const [flowFuture, setFlowFuture] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }[]>([]);
+  const [sitemapGraph, setSitemapGraph] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }>(() => buildDefaultSitemap());
+  const [sitemapPast, setSitemapPast] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }[]>([]);
+  const [sitemapFuture, setSitemapFuture] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }[]>([]);
+  const [manualScreensOpen, setManualScreensOpen] = useState(true);
+  const [manualGraph, setManualGraph] = useState<{ frames: ManualFrame[]; elements: ManualElement[] }>({ frames: [], elements: [] });
+  const [manualPast, setManualPast] = useState<{ frames: ManualFrame[]; elements: ManualElement[] }[]>([]);
+  const [manualFuture, setManualFuture] = useState<{ frames: ManualFrame[]; elements: ManualElement[] }[]>([]);
 
   function presentNavigate(id: HealthScreenId) {
     setPresentPast((p) => [...p, presentActiveScreen]);
@@ -140,6 +154,96 @@ export default function SketchCanvasPage() {
     setCanvasPast((p) => [...p, canvasItems]);
     setCanvasItems(next);
   }, [canvasFuture, canvasItems]);
+
+  const flowCommit = useCallback(
+    (updater: (prev: { nodes: FlowNode[]; edges: FlowEdge[] }) => { nodes: FlowNode[]; edges: FlowEdge[] }) => {
+      setFlowPast((p) => [...p, flowGraph].slice(-50));
+      setFlowFuture([]);
+      setFlowGraph(updater(flowGraph));
+    },
+    [flowGraph],
+  );
+
+  const flowBeginChange = useCallback(() => {
+    setFlowPast((p) => [...p, flowGraph].slice(-50));
+    setFlowFuture([]);
+  }, [flowGraph]);
+
+  const flowUndo = useCallback(() => {
+    if (flowPast.length === 0) return;
+    const prev = flowPast[flowPast.length - 1];
+    setFlowPast((p) => p.slice(0, -1));
+    setFlowFuture((f) => [flowGraph, ...f]);
+    setFlowGraph(prev);
+  }, [flowPast, flowGraph]);
+
+  const flowRedo = useCallback(() => {
+    if (flowFuture.length === 0) return;
+    const next = flowFuture[0];
+    setFlowFuture((f) => f.slice(1));
+    setFlowPast((p) => [...p, flowGraph]);
+    setFlowGraph(next);
+  }, [flowFuture, flowGraph]);
+
+  const sitemapCommit = useCallback(
+    (updater: (prev: { nodes: FlowNode[]; edges: FlowEdge[] }) => { nodes: FlowNode[]; edges: FlowEdge[] }) => {
+      setSitemapPast((p) => [...p, sitemapGraph].slice(-50));
+      setSitemapFuture([]);
+      setSitemapGraph(updater(sitemapGraph));
+    },
+    [sitemapGraph],
+  );
+
+  const sitemapBeginChange = useCallback(() => {
+    setSitemapPast((p) => [...p, sitemapGraph].slice(-50));
+    setSitemapFuture([]);
+  }, [sitemapGraph]);
+
+  const sitemapUndo = useCallback(() => {
+    if (sitemapPast.length === 0) return;
+    const prev = sitemapPast[sitemapPast.length - 1];
+    setSitemapPast((p) => p.slice(0, -1));
+    setSitemapFuture((f) => [sitemapGraph, ...f]);
+    setSitemapGraph(prev);
+  }, [sitemapPast, sitemapGraph]);
+
+  const sitemapRedo = useCallback(() => {
+    if (sitemapFuture.length === 0) return;
+    const next = sitemapFuture[0];
+    setSitemapFuture((f) => f.slice(1));
+    setSitemapPast((p) => [...p, sitemapGraph]);
+    setSitemapGraph(next);
+  }, [sitemapFuture, sitemapGraph]);
+
+  const manualCommit = useCallback(
+    (updater: (prev: { frames: ManualFrame[]; elements: ManualElement[] }) => { frames: ManualFrame[]; elements: ManualElement[] }) => {
+      setManualPast((p) => [...p, manualGraph].slice(-50));
+      setManualFuture([]);
+      setManualGraph(updater(manualGraph));
+    },
+    [manualGraph],
+  );
+
+  const manualBeginChange = useCallback(() => {
+    setManualPast((p) => [...p, manualGraph].slice(-50));
+    setManualFuture([]);
+  }, [manualGraph]);
+
+  const manualUndo = useCallback(() => {
+    if (manualPast.length === 0) return;
+    const prev = manualPast[manualPast.length - 1];
+    setManualPast((p) => p.slice(0, -1));
+    setManualFuture((f) => [manualGraph, ...f]);
+    setManualGraph(prev);
+  }, [manualPast, manualGraph]);
+
+  const manualRedo = useCallback(() => {
+    if (manualFuture.length === 0) return;
+    const next = manualFuture[0];
+    setManualFuture((f) => f.slice(1));
+    setManualPast((p) => [...p, manualGraph]);
+    setManualGraph(next);
+  }, [manualFuture, manualGraph]);
 
   useEffect(() => {
     if (hydrated && !isSignedIn) router.replace("/");
@@ -435,6 +539,39 @@ export default function SketchCanvasPage() {
     setActiveConnector({ connector, x: anchor.x + 16, y: anchor.y });
   }
 
+  const canvasPipelineUndo =
+    canvasPipelineTab === "userflow"
+      ? flowUndo
+      : canvasPipelineTab === "sitemap"
+        ? sitemapUndo
+        : canvasPipelineTab === "manualedit"
+          ? manualUndo
+          : canvasUndo;
+  const canvasPipelineRedo =
+    canvasPipelineTab === "userflow"
+      ? flowRedo
+      : canvasPipelineTab === "sitemap"
+        ? sitemapRedo
+        : canvasPipelineTab === "manualedit"
+          ? manualRedo
+          : canvasRedo;
+  const canvasPipelineCanUndo =
+    canvasPipelineTab === "userflow"
+      ? flowPast.length > 0
+      : canvasPipelineTab === "sitemap"
+        ? sitemapPast.length > 0
+        : canvasPipelineTab === "manualedit"
+          ? manualPast.length > 0
+          : canvasPast.length > 0;
+  const canvasPipelineCanRedo =
+    canvasPipelineTab === "userflow"
+      ? flowFuture.length > 0
+      : canvasPipelineTab === "sitemap"
+        ? sitemapFuture.length > 0
+        : canvasPipelineTab === "manualedit"
+          ? manualFuture.length > 0
+          : canvasFuture.length > 0;
+
   if (!isSignedIn) return null;
 
   const activeFrame = frames.find((f) => f.id === activeFrameId) ?? null;
@@ -453,7 +590,12 @@ export default function SketchCanvasPage() {
         />
       )}
       {viewMode === "present" && <PresentLeftRail panel={presentPanel} onPanelChange={setPresentPanel} />}
-      {viewMode === "canvas" && <PresentLeftRail panel={canvasPanel} onPanelChange={setCanvasPanel} />}
+      {viewMode === "canvas" && canvasPipelineTab === "manualedit" && (
+        <SketchLeftRail onScreensClick={() => setManualScreensOpen((v) => !v)} screensActive={manualScreensOpen} />
+      )}
+      {viewMode === "canvas" && canvasPipelineTab !== "manualedit" && (
+        <PresentLeftRail panel={canvasPanel} onPanelChange={setCanvasPanel} />
+      )}
 
       {viewMode === "present" && hasGenerated && (
         <div className="absolute top-3 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2">
@@ -474,16 +616,16 @@ export default function SketchCanvasPage() {
         <div className="absolute top-3 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2">
           <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
             <button
-              onClick={canvasUndo}
-              disabled={canvasPast.length === 0}
+              onClick={canvasPipelineUndo}
+              disabled={!canvasPipelineCanUndo}
               className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
               aria-label="Undo"
             >
               <Undo2 className="h-3.5 w-3.5" />
             </button>
             <button
-              onClick={canvasRedo}
-              disabled={canvasFuture.length === 0}
+              onClick={canvasPipelineRedo}
+              disabled={!canvasPipelineCanRedo}
               className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
               aria-label="Redo"
             >
@@ -493,7 +635,7 @@ export default function SketchCanvasPage() {
           <CanvasPipelineBar
             tab={canvasPipelineTab}
             onTabChange={(t) => {
-              if (t !== "ai") {
+              if (t !== "ai" && t !== "prototype" && t !== "wireframe" && t !== "userflow" && t !== "sitemap" && t !== "manualedit") {
                 const label = PIPELINE_TABS.find((p) => p.id === t)?.label ?? t;
                 toast(`${label} is coming soon.`);
                 return;
@@ -606,6 +748,40 @@ export default function SketchCanvasPage() {
             activeScreen={presentActiveScreen}
             onNavigate={presentNavigate}
           />
+        ) : viewMode === "canvas" && canvasPipelineTab === "userflow" ? (
+          <UserFlowView
+            nodes={flowGraph.nodes}
+            edges={flowGraph.edges}
+            onNodesChange={(nodes) => setFlowGraph((g) => ({ ...g, nodes }))}
+            onCommit={flowCommit}
+            onBeginChange={flowBeginChange}
+            onUndo={flowUndo}
+            onRedo={flowRedo}
+          />
+        ) : viewMode === "canvas" && canvasPipelineTab === "sitemap" ? (
+          <UserFlowView
+            nodes={sitemapGraph.nodes}
+            edges={sitemapGraph.edges}
+            onNodesChange={(nodes) => setSitemapGraph((g) => ({ ...g, nodes }))}
+            onCommit={sitemapCommit}
+            onBeginChange={sitemapBeginChange}
+            onUndo={sitemapUndo}
+            onRedo={sitemapRedo}
+            enableAutoArrange
+          />
+        ) : viewMode === "canvas" && canvasPipelineTab === "manualedit" ? (
+          <ManualEditView
+            frames={manualGraph.frames}
+            elements={manualGraph.elements}
+            onFramesChange={(frames) => setManualGraph((g) => ({ ...g, frames }))}
+            onElementsChange={(elements) => setManualGraph((g) => ({ ...g, elements }))}
+            onCommit={manualCommit}
+            onBeginChange={manualBeginChange}
+            onUndo={manualUndo}
+            onRedo={manualRedo}
+            screensOpen={manualScreensOpen}
+            onScreensOpenChange={setManualScreensOpen}
+          />
         ) : viewMode === "canvas" ? (
           <CanvasModeView
             generationPrompt={generationPrompt}
@@ -617,6 +793,7 @@ export default function SketchCanvasPage() {
             onBeginItemsChange={canvasBeginChange}
             onUndo={canvasUndo}
             onRedo={canvasRedo}
+            pipelineTab={canvasPipelineTab}
           />
         ) : (
         <div className="relative flex-1 overflow-hidden">

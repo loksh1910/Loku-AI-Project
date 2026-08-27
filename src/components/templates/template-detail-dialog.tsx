@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { toast } from "sonner";
 import type { Template } from "@/lib/templates-data";
 import { TemplateThumbnail } from "@/components/templates/template-thumbnail";
+import { useAppState } from "@/components/providers/app-state-provider";
 import { cn } from "@/lib/utils";
 
 export function TemplateDetailDialog({
@@ -17,6 +19,8 @@ export function TemplateDetailDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const [screenIndex, setScreenIndex] = useState(0);
+  const router = useRouter();
+  const { isSignedIn, openAuth } = useAppState();
 
   if (!template) return null;
   const isMobile = template.device === "mobile";
@@ -45,6 +49,18 @@ export function TemplateDetailDialog({
           <Button
             className="shrink-0 rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF] text-white hover:opacity-90"
             onClick={() => {
+              if (template.slug === "healthvisor-app") {
+                // The one template with a real app behind it — skip straight
+                // to Present Mode with it already "generated", same as
+                // finishing the Sketch-to-UI flow, just without sketching.
+                onOpenChange(false);
+                if (!isSignedIn) {
+                  openAuth("signin");
+                  return;
+                }
+                router.push("/sketch/canvas?entry=template");
+                return;
+              }
               toast.success(`"${template.title}" is ready to use (mock).`);
               onOpenChange(false);
             }}

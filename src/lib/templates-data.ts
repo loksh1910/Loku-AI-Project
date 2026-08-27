@@ -102,20 +102,24 @@ export const templates: Template[] = [
       "A complete student-focused platform designed to help users earn, learn, and collaborate within their academic ecosystem. VidNio enables students to sell notes securely, join subject-based communities, solve doubts collaboratively, and explore opportunities for projects and income. Built with a scalable UX system, this template is ideal for edtech platforms, student startups, and peer-to-peer learning apps.",
   },
   {
-    slug: "health-management",
-    title: "Health management App",
-    subtitle: "HealthVisor — care, organized",
+    // The one template with a real, fully-built app behind it — the exact
+    // HealthVisor screens/flow Sketch-to-UI itself generates. "Use Template"
+    // skips straight to Present Mode with these already "generated"; every
+    // other template here is still a browse-only mock.
+    slug: "healthvisor-app",
+    title: "HealthVisor",
+    subtitle: "Your personal health companion",
     device: "mobile",
-    screens: 14,
+    screens: 6,
     gradient: "from-[#dbeafe] via-[#bfdbfe] to-[#93c5fd]",
-    tags: ["Healthcare", "Wellness", "Mobile App", "Reminders"],
+    tags: ["Healthcare", "Wellness", "Mobile App", "Appointments"],
     keyFeatures: [
-      "Prescription tracking",
-      "Family profiles",
-      "Emergency quick actions",
-      "Medicine reminders",
+      "Onboarding & authentication",
+      "At-a-glance health dashboard",
+      "Appointment booking",
+      "Editable profile & settings",
     ],
     about:
-      "A healthcare companion app template covering onboarding, family health profiles, prescriptions, and emergency actions in one connected flow.",
+      "A healthcare companion app covering onboarding, sign up/sign in, a daily dashboard with vitals and activity, appointment booking, and profile management — fully generated and editable, not just a preview: pick it to open the real thing in Present Mode, then refine it in Canvas across every pipeline mode (Prototype, Wireframe, User Flow, Sitemap, Manual Edit, Code).",
   },
 ];

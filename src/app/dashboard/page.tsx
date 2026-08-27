@@ -43,7 +43,7 @@ const ENTRY_CARDS: EntryCard[] = [
   { label: "Sketch to UI", icon: PencilRuler, href: "/sketch" },
   { label: "Sitemap/user flow to UI", icon: Share2, href: "/flow" },
   { label: "Start with your design", icon: UploadCloud },
-  { label: "Start from Scratch", icon: Plus },
+  { label: "Start from Scratch", icon: Plus, href: "/sketch/canvas?entry=design" },
 ];
 
 const SUGGESTIONS = [
@@ -113,7 +113,14 @@ export default function DashboardPage() {
             <AiPromptBar
               value={prompt}
               onChange={setPrompt}
-              onSubmit={() => toast("AI generation is coming soon.")}
+              onSubmit={() => {
+                const text = prompt.trim();
+                if (!text) return;
+                // Typing a prompt here IS "Start from Scratch," AI-flavored — same
+                // empty-canvas destination, just fires the generation questionnaire
+                // immediately instead of waiting for a second submit in-canvas.
+                router.push(`/sketch/canvas?entry=scratch&prompt=${encodeURIComponent(text)}`);
+              }}
               className="mx-auto mt-6 max-w-2xl"
             />
 

@@ -56,6 +56,7 @@ export function ManualEditView({
   onRedo,
   screensOpen,
   onScreensOpenChange,
+  showVariations = true,
 }: {
   frames: ManualFrame[];
   elements: ManualElement[];
@@ -67,6 +68,9 @@ export function ManualEditView({
   onRedo: () => void;
   screensOpen: boolean;
   onScreensOpenChange: (open: boolean) => void;
+  /** The Design/Prototype (Start from Scratch) entry has no AI variations to
+   * offer — there's nothing generated to vary. Defaults to true everywhere else. */
+  showVariations?: boolean;
 }) {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -644,7 +648,7 @@ export function ManualEditView({
           masked={!!selectedElement?.isMask}
           onBooleanOp={handleBooleanOp}
         />
-        <CanvasVariationsMenu variationIds={VARIATION_IDS} active={variations} onApply={applyVariations} />
+        {showVariations && <CanvasVariationsMenu variationIds={VARIATION_IDS} active={variations} onApply={applyVariations} />}
       </div>
 
       <ManualRightToolbar
@@ -677,7 +681,7 @@ export function ManualEditView({
   );
 }
 
-function ManualElementView({
+export function ManualElementView({
   el,
   zoom,
   originX,
@@ -688,6 +692,7 @@ function ManualElementView({
   onStartResize,
   onDoubleClickText,
   onCommitText,
+  dataFrameId,
 }: {
   el: ManualElement;
   zoom: number;
@@ -699,6 +704,11 @@ function ManualElementView({
   onStartResize: (e: React.PointerEvent, corner: "nw" | "ne" | "sw" | "se") => void;
   onDoubleClickText: () => void;
   onCommitText: (text: string) => void;
+  /** Read by the Design/Prototype view's drag-to-connect drop detection
+   * (elementFromPoint().closest("[data-frame-id]")) — elements render in their
+   * own flat layer, not nested under their frame's box, so they need this tag
+   * themselves rather than inheriting it from an ancestor. Unused elsewhere. */
+  dataFrameId?: string;
 }) {
   const HANDLE = 8;
   const scaleX = el.flipH ? -1 : 1;
@@ -717,7 +727,7 @@ function ManualElementView({
 
   if (el.kind === "path" && el.points) {
     return (
-      <svg className="absolute" style={{ left: canvasX * zoom, top: canvasY * zoom, width: el.w * zoom || 1, height: el.h * zoom || 1, opacity: el.opacity / 100 }}>
+      <svg data-frame-id={dataFrameId} className="absolute" style={{ left: canvasX * zoom, top: canvasY * zoom, width: el.w * zoom || 1, height: el.h * zoom || 1, opacity: el.opacity / 100 }}>
         <polygon
           points={el.points.map((p) => `${(p.x - el.x) * zoom},${(p.y - el.y) * zoom}`).join(" ")}
           fill={el.fill}
@@ -771,6 +781,7 @@ function ManualElementView({
 
   return (
     <div
+      data-frame-id={dataFrameId}
       onPointerDown={(e) => {
         e.stopPropagation();
         onPointerDownDrag(e);

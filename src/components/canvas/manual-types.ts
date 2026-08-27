@@ -168,6 +168,13 @@ export function newManualFrame(device: SketchDevice, x: number, name: string, va
   return { id: uid("frame"), name, device, x, y: 0, fill: "#FFFFFF", cornerRadius: 0, paddingH: 16, paddingV: 16, spacing: 12, clipContent: true, flow: "none", variation };
 }
 
+// A genuinely blank canvas for the Design/Prototype (Start from Scratch) entry
+// — no seeded screens, the user builds every frame themselves with the Design
+// tab's own tools, mirroring buildEmptyFlow()'s role for the Sitemap/User-Flow entry.
+export function buildEmptyManual(): { frames: ManualFrame[]; elements: ManualElement[] } {
+  return { frames: [], elements: [] };
+}
+
 export function newManualPath(frameId: string, points: { x: number; y: number }[]): ManualElement {
   const xs = points.map((p) => p.x);
   const ys = points.map((p) => p.y);

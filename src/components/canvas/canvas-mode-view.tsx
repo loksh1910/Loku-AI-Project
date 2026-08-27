@@ -9,11 +9,11 @@ import { AiAssistantOverlay } from "@/components/present/ai-assistant-overlay";
 import { PresentPromptBar } from "@/components/present/present-prompt-bar";
 import { DeviceFrame } from "@/components/present/device-frame";
 import { VARIATION_THEMES, type VariationId } from "@/components/present/health-app/theme";
-import { HEALTH_SCREENS } from "@/components/present/health-app/screens";
+import { HEALTH_SCREENS, type HealthScreenId } from "@/components/present/health-app/screens";
 import { WIREFRAME_SCREENS } from "@/components/present/health-app/wireframe-screens";
 import { CanvasRightToolbar } from "@/components/canvas/canvas-right-toolbar";
 import { CanvasVariationsMenu } from "@/components/canvas/canvas-variations-menu";
-import { CANVAS_DEVICE_W, defaultVariationRow, type CanvasItem, type CanvasTool } from "@/components/canvas/canvas-types";
+import { CANVAS_DEVICE_W, SCREEN_ORDER, defaultVariationRow, type CanvasItem, type CanvasTool } from "@/components/canvas/canvas-types";
 import type { PipelineTab } from "@/components/canvas/canvas-pipeline-bar";
 import { ShowAllFlowToggle } from "@/components/canvas/show-all-flow-toggle";
 import { PrototypePromptBar } from "@/components/canvas/prototype-prompt-bar";
@@ -47,6 +47,7 @@ export function CanvasModeView({
   onUndo,
   onRedo,
   pipelineTab,
+  overlay,
 }: {
   generationPrompt: string;
   panel: PresentPanel;
@@ -58,6 +59,11 @@ export function CanvasModeView({
   onUndo: () => void;
   onRedo: () => void;
   pipelineTab: PipelineTab;
+  /** The Start from Scratch (AI prompt) entry's own pre-generation questions/building
+   * overlays — rendered inside this component's already-correctly-sized root instead
+   * of wrapping it from outside, which would break its flex-1 sizing (see the
+   * Sitemap/User-Flow "flow" viewMode fix for why that wrapping is a real footgun here). */
+  overlay?: React.ReactNode;
 }) {
   const isPrototype = pipelineTab === "prototype";
   const isWireframe = pipelineTab === "wireframe";
@@ -538,10 +544,17 @@ export function CanvasModeView({
       {hasFlowWires && activeInteraction && (
         <PrototypeInteractionBox
           interaction={interactions.find((it) => it.id === activeInteraction.id)!}
+          targetLabel={HEALTH_SCREENS[interactions.find((it) => it.id === activeInteraction.id)!.targetScreenId].name}
+          targetOptions={SCREEN_ORDER.map((id) => ({ id, label: HEALTH_SCREENS[id].name }))}
           x={activeInteraction.x}
           y={activeInteraction.y}
           onChange={(patch) =>
             setInteractions((prev) => prev.map((it) => (it.id === activeInteraction.id ? { ...it, ...patch } : it)))
+          }
+          onTargetChange={(id) =>
+            setInteractions((prev) =>
+              prev.map((it) => (it.id === activeInteraction.id ? { ...it, targetScreenId: id as HealthScreenId } : it)),
+            )
           }
           onClose={() => setActiveInteraction(null)}
         />
@@ -566,6 +579,8 @@ export function CanvasModeView({
           <HelpCircle className="h-3.5 w-3.5" />
         </button>
       </div>
+
+      {overlay}
     </div>
   );
 }

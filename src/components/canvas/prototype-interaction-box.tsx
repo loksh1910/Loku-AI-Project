@@ -2,9 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronDown, Pencil, Smartphone, Sparkles, X } from "lucide-react";
-import { HEALTH_SCREENS } from "@/components/present/health-app/screens";
-import { SCREEN_ORDER } from "@/components/canvas/canvas-types";
-import type { PrototypeInteraction } from "@/components/canvas/prototype-types";
 
 const TRIGGERS = ["On Click", "On Hover", "After Delay", "All Actions"];
 const ACTIONS = ["Navigate to", "Open Overlay", "Scroll to"];
@@ -13,20 +10,54 @@ const DURATIONS = ["150ms", "250ms", "300ms", "500ms"];
 const EASINGS = ["Ease in out", "Ease in", "Ease out", "Linear"];
 const AI_SUGGESTIONS = ["Make it smoother", "Add slight delay", "Use fade animation"];
 
-export function PrototypeInteractionBox({
+// The editable fields every interaction shares, regardless of what system of
+// screens it points into — kept generic so this one box serves both the fixed
+// HealthVisor Prototype flow (PrototypeInteraction) and the Design/Prototype
+// entry's freeform ManualInteraction, rather than forking the component.
+export type InteractionCoreFields = {
+  sourceElementName: string;
+  sourceElementType: string;
+  trigger: string;
+  action: string;
+  animation: string;
+  duration: string;
+  easing: string;
+};
+
+// Only the fields this box's own Manual-edit dropdowns ever patch — narrower
+// than InteractionCoreFields on purpose. sourceElementType is a plain `string`
+// here but a closed union on PrototypeInteraction (its concrete caller); typing
+// onChange over the wider InteractionCoreFields would force every caller's
+// state to widen sourceElementType to `string` too, just from this callback's
+// shape, even though it's never one of the fields actually written back.
+type InteractionEditableFields = Pick<InteractionCoreFields, "trigger" | "action" | "animation" | "duration" | "easing">;
+
+export function PrototypeInteractionBox<T extends InteractionCoreFields>({
   interaction,
+  targetLabel,
+  targetOptions,
   x,
   y,
+  initialMode = "ai",
   onChange,
+  onTargetChange,
   onClose,
 }: {
-  interaction: PrototypeInteraction;
+  interaction: T;
+  /** Resolved display name of the interaction's current target. */
+  targetLabel: string;
+  /** Every screen the target dropdown can switch to. */
+  targetOptions: { id: string; label: string }[];
   x: number;
   y: number;
-  onChange: (patch: Partial<PrototypeInteraction>) => void;
+  /** The Design/Prototype entry opens straight into Manual edit — every other
+   * caller keeps the original AI-edit-first default. */
+  initialMode?: "ai" | "manual";
+  onChange: (patch: Partial<InteractionEditableFields>) => void;
+  onTargetChange: (id: string) => void;
   onClose: () => void;
 }) {
-  const [mode, setMode] = useState<"ai" | "manual">("ai");
+  const [mode, setMode] = useState<"ai" | "manual">(initialMode);
   const [prompt, setPrompt] = useState("");
   const [targetOpen, setTargetOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -46,7 +77,12 @@ export function PrototypeInteractionBox({
       className="absolute z-40 w-[280px] rounded-2xl border border-primary/40 bg-popover p-4 shadow-2xl"
       style={{
         left: `max(8px, min(${x}px, calc(100% - 288px)))`,
-        top: `max(8px, min(${y}px, calc(100% - 420px)))`,
+        // 520px clears Manual edit's full height (5 selects + header + back
+        // button) — taller than AI edit's, but this one clamp constant has to
+        // cover whichever mode the box opens in, and openers picking
+        // initialMode="manual" (the Design/Prototype entry) are a real path
+        // now, not just a toggle a user might reach mid-session.
+        top: `max(8px, min(${y}px, calc(100% - 520px)))`,
       }}
     >
       <div className="mb-3 flex items-center justify-between">
@@ -72,23 +108,23 @@ export function PrototypeInteractionBox({
           >
             <Smartphone className="h-3 w-3 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1">
-              <p className="truncate font-medium">{HEALTH_SCREENS[interaction.targetScreenId].name}</p>
+              <p className="truncate font-medium">{targetLabel}</p>
               <p className="text-[10px] text-muted-foreground">Screen</p>
             </span>
             <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
           </button>
           {targetOpen && (
             <div className="absolute top-full right-0 z-10 mt-1 w-[160px] rounded-xl border border-border/60 bg-popover p-1.5 shadow-xl">
-              {SCREEN_ORDER.map((id) => (
+              {targetOptions.map((opt) => (
                 <button
-                  key={id}
+                  key={opt.id}
                   onClick={() => {
-                    onChange({ targetScreenId: id });
+                    onTargetChange(opt.id);
                     setTargetOpen(false);
                   }}
                   className="block w-full rounded-lg px-2 py-1.5 text-left text-xs hover:bg-secondary"
                 >
-                  {HEALTH_SCREENS[id].name}
+                  {opt.label}
                 </button>
               ))}
             </div>

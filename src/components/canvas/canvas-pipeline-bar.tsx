@@ -11,10 +11,22 @@ export const PIPELINE_TABS: PillTabItem<PipelineTab>[] = [
   { id: "wireframe", label: "Wireframe", icon: Rows3 },
   { id: "userflow", label: "User Flow", icon: Waypoints },
   { id: "sitemap", label: "Sitemap", icon: Network },
-  { id: "manualedit", label: "Manual Edit", icon: SquarePen },
+  { id: "manualedit", label: "Design", icon: SquarePen },
   { id: "code", label: "Code", icon: Code2 },
 ];
 
-export function CanvasPipelineBar({ tab, onTabChange }: { tab: PipelineTab; onTabChange: (tab: PipelineTab) => void }) {
-  return <SegmentedPillBar items={PIPELINE_TABS} active={tab} onChange={onTabChange} />;
+export function CanvasPipelineBar({
+  tab,
+  onTabChange,
+  tabs,
+}: {
+  tab: PipelineTab;
+  onTabChange: (tab: PipelineTab) => void;
+  /** Restricts which tabs render, in order — e.g. the Design/Prototype (Start
+   * from Scratch) entry only ever offers Design + Prototype, no AI-generated
+   * modes. Defaults to the full 7-tab pipeline. */
+  tabs?: PipelineTab[];
+}) {
+  const items = tabs ? PIPELINE_TABS.filter((t) => tabs.includes(t.id)) : PIPELINE_TABS;
+  return <SegmentedPillBar items={items} active={tab} onChange={onTabChange} />;
 }

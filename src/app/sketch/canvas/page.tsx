@@ -23,7 +23,9 @@ import { defaultVariationRow, type CanvasItem } from "@/components/canvas/canvas
 import { UserFlowView } from "@/components/canvas/user-flow-view";
 import { buildDefaultFlow, buildDefaultSitemap, buildEmptyFlow, type FlowEdge, type FlowNode } from "@/components/canvas/flow-types";
 import { ManualEditView } from "@/components/canvas/manual-edit-view";
-import type { ManualElement, ManualFrame } from "@/components/canvas/manual-types";
+import { ManualPrototypeView } from "@/components/canvas/manual-prototype-view";
+import { newManualFrame, buildEmptyManual, type ManualElement, type ManualFrame } from "@/components/canvas/manual-types";
+import type { ManualInteraction } from "@/components/canvas/manual-prototype-types";
 import { buildHealthScreensManual } from "@/components/canvas/manual-health-seed";
 import { CodeModeView } from "@/components/canvas/code-mode-view";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -69,8 +71,17 @@ function SketchCanvasPage() {
   // user draws their own structure before clicking Generate UI.
   const flowKind: "userflow" | "sitemap" | null =
     entryParam === "userflow" ? "userflow" : entryParam === "sitemap" ? "sitemap" : null;
+  // "Start from Scratch" has two distinct entries sharing this same page:
+  // - "design": the manual, Figma-style entry — an empty canvas, Design +
+  //   Prototype pipeline tabs only, no AI generation at all, ever.
+  // - "scratch": the AI-prompt entry (typed in the Dashboard's own AI bar) —
+  //   an empty AI-mode canvas that opens straight into the same 7-question
+  //   overlay used everywhere else, using the typed prompt as the answer.
+  const isDesignEntry = entryParam === "design";
+  const aiScratch = entryParam === "scratch";
+  const initialPromptParam = searchParams.get("prompt") ?? "";
   // Neither entry has a sketch of its own to switch back to.
-  const noSketchMode = fromTemplate || flowKind !== null;
+  const noSketchMode = fromTemplate || flowKind !== null || isDesignEntry || aiScratch;
 
   const [frames, setFrames] = useState<SketchFrame[]>([]);
   const [elements, setElements] = useState<SketchElement[]>([]);
@@ -93,11 +104,25 @@ function SketchCanvasPage() {
     y: number;
   } | null>(null);
   const [projectName, setProjectName] = useState(
-    fromTemplate ? "HealthVisor App" : flowKind === "sitemap" ? "Sitemap Project" : flowKind === "userflow" ? "User Flow Project" : "Project name",
+    fromTemplate
+      ? "HealthVisor App"
+      : flowKind === "sitemap"
+        ? "Sitemap Project"
+        : flowKind === "userflow"
+          ? "User Flow Project"
+          : isDesignEntry
+            ? "Untitled Design"
+            : aiScratch
+              ? "New Project"
+              : "Project name",
   );
   const [editingName, setEditingName] = useState(false);
-  const [flowStage, setFlowStage] = useState<"idle" | "questions" | "building">("idle");
-  const [viewMode, setViewMode] = useState<ViewMode>(fromTemplate ? "present" : flowKind ? "flow" : "sketch");
+  const [flowStage, setFlowStage] = useState<"idle" | "questions" | "building">(
+    aiScratch && initialPromptParam ? "questions" : "idle",
+  );
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    fromTemplate ? "present" : flowKind ? "flow" : isDesignEntry || aiScratch ? "canvas" : "sketch",
+  );
   const [generationPrompt, setGenerationPrompt] = useState("");
   const [maxVariations, setMaxVariations] = useState(3);
   const [presentPanel, setPresentPanel] = useState<PresentPanel>("screens");
@@ -107,9 +132,13 @@ function SketchCanvasPage() {
   const [presentActiveScreen, setPresentActiveScreen] = useState<HealthScreenId>("splash");
   const [presentPast, setPresentPast] = useState<HealthScreenId[]>([]);
   const [presentFuture, setPresentFuture] = useState<HealthScreenId[]>([]);
-  const [canvasPipelineTab, setCanvasPipelineTab] = useState<PipelineTab>("ai");
-  const [canvasPanel, setCanvasPanel] = useState<PresentPanel>("screens");
-  const [canvasItems, setCanvasItems] = useState<CanvasItem[]>(() => defaultVariationRow("bold", 0));
+  const [canvasPipelineTab, setCanvasPipelineTab] = useState<PipelineTab>(isDesignEntry ? "manualedit" : "ai");
+  // PresentScreensPanel always lists the fixed 6-screen HealthVisor set (it has
+  // no notion of "no screens yet") — correct once something's actually
+  // generated, misleading before that, so the aiScratch entry starts with it
+  // closed rather than showing a "6 screens" list against a genuinely empty canvas.
+  const [canvasPanel, setCanvasPanel] = useState<PresentPanel>(aiScratch ? null : "screens");
+  const [canvasItems, setCanvasItems] = useState<CanvasItem[]>(() => (aiScratch ? [] : defaultVariationRow("bold", 0)));
   const [canvasPast, setCanvasPast] = useState<CanvasItem[][]>([]);
   const [canvasFuture, setCanvasFuture] = useState<CanvasItem[][]>([]);
   const [flowGraph, setFlowGraph] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }>(() =>
@@ -123,9 +152,14 @@ function SketchCanvasPage() {
   const [sitemapPast, setSitemapPast] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }[]>([]);
   const [sitemapFuture, setSitemapFuture] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }[]>([]);
   const [manualScreensOpen, setManualScreensOpen] = useState(true);
-  const [manualGraph, setManualGraph] = useState<{ frames: ManualFrame[]; elements: ManualElement[] }>(() => buildHealthScreensManual());
+  const [manualGraph, setManualGraph] = useState<{ frames: ManualFrame[]; elements: ManualElement[] }>(() =>
+    isDesignEntry ? buildEmptyManual() : buildHealthScreensManual(),
+  );
   const [manualPast, setManualPast] = useState<{ frames: ManualFrame[]; elements: ManualElement[] }[]>([]);
   const [manualFuture, setManualFuture] = useState<{ frames: ManualFrame[]; elements: ManualElement[] }[]>([]);
+  const [manualInteractions, setManualInteractions] = useState<ManualInteraction[]>([]);
+  const [manualInteractionsPast, setManualInteractionsPast] = useState<ManualInteraction[][]>([]);
+  const [manualInteractionsFuture, setManualInteractionsFuture] = useState<ManualInteraction[][]>([]);
 
   function presentNavigate(id: HealthScreenId) {
     setPresentPast((p) => [...p, presentActiveScreen]);
@@ -268,6 +302,48 @@ function SketchCanvasPage() {
     setManualPast((p) => [...p, manualGraph]);
     setManualGraph(next);
   }, [manualFuture, manualGraph]);
+
+  const manualInteractionsCommit = useCallback(
+    (updater: (prev: ManualInteraction[]) => ManualInteraction[]) => {
+      setManualInteractionsPast((p) => [...p, manualInteractions].slice(-50));
+      setManualInteractionsFuture([]);
+      setManualInteractions(updater(manualInteractions));
+    },
+    [manualInteractions],
+  );
+
+  const manualInteractionsBeginChange = useCallback(() => {
+    setManualInteractionsPast((p) => [...p, manualInteractions].slice(-50));
+    setManualInteractionsFuture([]);
+  }, [manualInteractions]);
+
+  const manualInteractionsUndo = useCallback(() => {
+    if (manualInteractionsPast.length === 0) return;
+    const prev = manualInteractionsPast[manualInteractionsPast.length - 1];
+    setManualInteractionsPast((p) => p.slice(0, -1));
+    setManualInteractionsFuture((f) => [manualInteractions, ...f]);
+    setManualInteractions(prev);
+  }, [manualInteractionsPast, manualInteractions]);
+
+  const manualInteractionsRedo = useCallback(() => {
+    if (manualInteractionsFuture.length === 0) return;
+    const next = manualInteractionsFuture[0];
+    setManualInteractionsFuture((f) => f.slice(1));
+    setManualInteractionsPast((p) => [...p, manualInteractions]);
+    setManualInteractions(next);
+  }, [manualInteractionsFuture, manualInteractions]);
+
+  function addManualFrame(device: SketchDevice) {
+    const lastX = manualGraph.frames.length
+      ? Math.max(...manualGraph.frames.map((f) => f.x + f.device.width)) + 80
+      : 0;
+    const frame = newManualFrame(device, lastX, `Screen ${manualGraph.frames.length + 1}`);
+    manualCommit((prev) => ({ frames: [...prev.frames, frame], elements: prev.elements }));
+  }
+
+  function renameManualFrame(id: string, name: string) {
+    setManualGraph((g) => ({ ...g, frames: g.frames.map((f) => (f.id === id ? { ...f, name } : f)) }));
+  }
 
   useEffect(() => {
     if (hydrated && !isSignedIn) router.replace("/");
@@ -563,32 +639,37 @@ function SketchCanvasPage() {
     setActiveConnector({ connector, x: anchor.x + 16, y: anchor.y });
   }
 
-  const canvasPipelineUndo =
-    canvasPipelineTab === "userflow"
+  const isDesignPrototypeTab = isDesignEntry && canvasPipelineTab === "prototype";
+  const canvasPipelineUndo = isDesignPrototypeTab
+    ? manualInteractionsUndo
+    : canvasPipelineTab === "userflow"
       ? flowUndo
       : canvasPipelineTab === "sitemap"
         ? sitemapUndo
         : canvasPipelineTab === "manualedit"
           ? manualUndo
           : canvasUndo;
-  const canvasPipelineRedo =
-    canvasPipelineTab === "userflow"
+  const canvasPipelineRedo = isDesignPrototypeTab
+    ? manualInteractionsRedo
+    : canvasPipelineTab === "userflow"
       ? flowRedo
       : canvasPipelineTab === "sitemap"
         ? sitemapRedo
         : canvasPipelineTab === "manualedit"
           ? manualRedo
           : canvasRedo;
-  const canvasPipelineCanUndo =
-    canvasPipelineTab === "userflow"
+  const canvasPipelineCanUndo = isDesignPrototypeTab
+    ? manualInteractionsPast.length > 0
+    : canvasPipelineTab === "userflow"
       ? flowPast.length > 0
       : canvasPipelineTab === "sitemap"
         ? sitemapPast.length > 0
         : canvasPipelineTab === "manualedit"
           ? manualPast.length > 0
           : canvasPast.length > 0;
-  const canvasPipelineCanRedo =
-    canvasPipelineTab === "userflow"
+  const canvasPipelineCanRedo = isDesignPrototypeTab
+    ? manualInteractionsFuture.length > 0
+    : canvasPipelineTab === "userflow"
       ? flowFuture.length > 0
       : canvasPipelineTab === "sitemap"
         ? sitemapFuture.length > 0
@@ -615,10 +696,10 @@ function SketchCanvasPage() {
       )}
       {viewMode === "flow" && <SketchLeftRail />}
       {viewMode === "present" && <PresentLeftRail panel={presentPanel} onPanelChange={setPresentPanel} />}
-      {viewMode === "canvas" && canvasPipelineTab === "manualedit" && (
+      {viewMode === "canvas" && (canvasPipelineTab === "manualedit" || isDesignPrototypeTab) && (
         <SketchLeftRail onScreensClick={() => setManualScreensOpen((v) => !v)} screensActive={manualScreensOpen} />
       )}
-      {viewMode === "canvas" && canvasPipelineTab !== "manualedit" && (
+      {viewMode === "canvas" && canvasPipelineTab !== "manualedit" && !isDesignPrototypeTab && (
         <PresentLeftRail panel={canvasPanel} onPanelChange={setCanvasPanel} />
       )}
 
@@ -659,6 +740,7 @@ function SketchCanvasPage() {
           </div>
           <CanvasPipelineBar
             tab={canvasPipelineTab}
+            tabs={isDesignEntry ? ["manualedit", "prototype"] : aiScratch && !hasGenerated ? ["ai"] : undefined}
             onTabChange={(t) => {
               if (t !== "ai" && t !== "prototype" && t !== "wireframe" && t !== "userflow" && t !== "sitemap" && t !== "manualedit" && t !== "code") {
                 const label = PIPELINE_TABS.find((p) => p.id === t)?.label ?? t;
@@ -867,6 +949,21 @@ function SketchCanvasPage() {
             onRedo={manualRedo}
             screensOpen={manualScreensOpen}
             onScreensOpenChange={setManualScreensOpen}
+            showVariations={!isDesignEntry}
+          />
+        ) : viewMode === "canvas" && isDesignPrototypeTab ? (
+          <ManualPrototypeView
+            frames={manualGraph.frames}
+            elements={manualGraph.elements}
+            interactions={manualInteractions}
+            onCommit={manualInteractionsCommit}
+            onBeginChange={manualInteractionsBeginChange}
+            onUndo={manualInteractionsUndo}
+            onRedo={manualInteractionsRedo}
+            onAddFrame={addManualFrame}
+            onRenameFrame={renameManualFrame}
+            screensOpen={manualScreensOpen}
+            onScreensOpenChange={setManualScreensOpen}
           />
         ) : viewMode === "canvas" && canvasPipelineTab === "code" ? (
           <CodeModeView />
@@ -882,6 +979,38 @@ function SketchCanvasPage() {
             onUndo={canvasUndo}
             onRedo={canvasRedo}
             pipelineTab={canvasPipelineTab}
+            overlay={
+              aiScratch && !hasGenerated ? (
+                <>
+                  {flowStage === "building" && (
+                    <AiBuildingOverlay
+                      onComplete={() => {
+                        setFlowStage("idle");
+                        setHasGenerated(true);
+                        setViewMode("present");
+                        // Present Mode's own rendering never reads canvasItems (it
+                        // has its own hardcoded HealthVisor content) — every other
+                        // entry seeds this from the start regardless, so Canvas
+                        // Mode's AI tab isn't left empty once the user switches to it.
+                        setCanvasItems(defaultVariationRow("bold", 0));
+                        setCanvasPanel("screens");
+                      }}
+                    />
+                  )}
+                  {flowStage === "questions" && (
+                    <GenerateQuestionsOverlay
+                      onClose={() => setFlowStage("idle")}
+                      onComplete={(answers: GenerateAnswers) => {
+                        setGenerationPrompt(answers.extraNotes || initialPromptParam || answers.selections.type || "Build my app");
+                        const count = Number(answers.selections.optionsCount);
+                        setMaxVariations(count >= 1 && count <= 3 ? count : 3);
+                        setFlowStage("building");
+                      }}
+                    />
+                  )}
+                </>
+              ) : undefined
+            }
           />
         ) : (
         <div className="relative flex-1 overflow-hidden">

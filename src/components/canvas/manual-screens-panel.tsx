@@ -9,7 +9,11 @@ import {
   type SketchDeviceCategory,
 } from "@/lib/sketch-devices";
 import type { ManualElement, ManualFrame } from "@/components/canvas/manual-types";
+import { CANONICAL_SCREEN_NAMES } from "@/components/canvas/manual-health-seed";
+import { VARIATION_THEMES, type VariationId } from "@/components/present/health-app/theme";
 import { cn } from "@/lib/utils";
+
+const VARIATION_ORDER: VariationId[] = ["bold", "playful", "minimal"];
 
 type View = "empty" | "categories" | "devices" | "list";
 
@@ -170,85 +174,119 @@ export function ManualScreensPanel({
         </>
       )}
 
-      {view === "list" && (
-        <div className="w-[280px] p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Screens</h3>
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <button onClick={() => setView("categories")} aria-label="Add screen">
-                <Plus className="h-4 w-4" />
-              </button>
-              <Search className="h-4 w-4" />
-            </div>
-          </div>
-          <p className="mb-1 px-1 text-[10px] tracking-wide text-muted-foreground uppercase">
-            {frames.length} screens
-          </p>
-          <div className="max-h-[380px] overflow-y-auto">
-            {frames.map((f, i) => {
-              const layers = elements.filter((el) => el.frameId === f.id);
-              const expanded = expandedFrameId === f.id;
-              return (
-                <div key={f.id}>
-                  <div className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm hover:bg-secondary">
-                    <button
-                      onClick={() => setExpandedFrameId(expanded ? null : f.id)}
-                      className="shrink-0 text-muted-foreground"
-                      aria-label="Toggle layers"
-                    >
-                      <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !expanded && "-rotate-90")} />
-                    </button>
-                    <span className="w-5 shrink-0 text-xs text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
-                    {renamingId === f.id ? (
-                      <input
-                        autoFocus
-                        defaultValue={f.name}
-                        onBlur={(e) => {
-                          onRenameFrame(f.id, e.target.value.trim() || f.name);
-                          setRenamingId(null);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") e.currentTarget.blur();
-                          if (e.key === "Escape") setRenamingId(null);
-                        }}
-                        className="flex-1 rounded bg-secondary px-1 py-0.5 text-sm outline-none"
-                      />
-                    ) : (
-                      <span onDoubleClick={() => setRenamingId(f.id)} className="flex-1 truncate" title="Double-click to rename">
-                        {f.name}
-                      </span>
-                    )}
-                  </div>
-                  {expanded && (
-                    <div className="ml-6 space-y-0.5 border-l border-border/60 pl-2">
-                      {layers.length === 0 ? (
-                        <p className="py-1 text-xs text-muted-foreground">No layers yet</p>
-                      ) : (
-                        layers.map((el) => {
-                          const Icon = KIND_ICON[el.kind];
-                          return (
-                            <button
-                              key={el.id}
-                              onClick={() => onSelectElement(el.id)}
-                              className={cn(
-                                "flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-xs hover:bg-secondary",
-                                selectedElementId === el.id && "bg-primary/15 text-primary",
-                              )}
-                            >
-                              <Icon className="h-3 w-3 shrink-0" />
-                              <span className="truncate">{el.name}</span>
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
+      {view === "list" &&
+        (() => {
+          const isManaged = (f: ManualFrame) => CANONICAL_SCREEN_NAMES.includes(f.name);
+          const managedFrames = frames.filter(isManaged);
+          const freeformFrames = frames.filter((f) => !isManaged(f));
+          // Only auto-managed seed screens (Splash/Sign Up/.../Profile) ever carry
+          // more than one variation, so grouping only kicks in once the Variations
+          // menu actually has 2+ rows open — a single variation looks exactly like
+          // the flat list this panel always had.
+          const variationsPresent = VARIATION_ORDER.filter((v) => managedFrames.some((f) => f.variation === v));
+          const grouped = variationsPresent.length > 1;
+
+          function renderFrame(f: ManualFrame, i: number) {
+            const layers = elements.filter((el) => el.frameId === f.id);
+            const expanded = expandedFrameId === f.id;
+            return (
+              <div key={f.id}>
+                <div className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm hover:bg-secondary">
+                  <button
+                    onClick={() => setExpandedFrameId(expanded ? null : f.id)}
+                    className="shrink-0 text-muted-foreground"
+                    aria-label="Toggle layers"
+                  >
+                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !expanded && "-rotate-90")} />
+                  </button>
+                  <span className="w-5 shrink-0 text-xs text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
+                  {renamingId === f.id ? (
+                    <input
+                      autoFocus
+                      defaultValue={f.name}
+                      onBlur={(e) => {
+                        onRenameFrame(f.id, e.target.value.trim() || f.name);
+                        setRenamingId(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                        if (e.key === "Escape") setRenamingId(null);
+                      }}
+                      className="flex-1 rounded bg-secondary px-1 py-0.5 text-sm outline-none"
+                    />
+                  ) : (
+                    <span onDoubleClick={() => setRenamingId(f.id)} className="flex-1 truncate" title="Double-click to rename">
+                      {f.name}
+                    </span>
                   )}
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                {expanded && (
+                  <div className="ml-6 space-y-0.5 border-l border-border/60 pl-2">
+                    {layers.length === 0 ? (
+                      <p className="py-1 text-xs text-muted-foreground">No layers yet</p>
+                    ) : (
+                      layers.map((el) => {
+                        const Icon = KIND_ICON[el.kind];
+                        return (
+                          <button
+                            key={el.id}
+                            onClick={() => onSelectElement(el.id)}
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-xs hover:bg-secondary",
+                              selectedElementId === el.id && "bg-primary/15 text-primary",
+                            )}
+                          >
+                            <Icon className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{el.name}</span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          return (
+            <div className="w-[280px] p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Screens</h3>
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <button onClick={() => setView("categories")} aria-label="Add screen">
+                    <Plus className="h-4 w-4" />
+                  </button>
+                  <Search className="h-4 w-4" />
+                </div>
+              </div>
+              <p className="mb-1 px-1 text-[10px] tracking-wide text-muted-foreground uppercase">
+                {grouped ? `${variationsPresent.length} variations` : `${frames.length} screens`}
+              </p>
+              <div className="max-h-[380px] overflow-y-auto">
+                {grouped ? (
+                  <>
+                    {variationsPresent.map((v) => (
+                      <div key={v} className="mb-2">
+                        <p className="mt-2 mb-1 px-1 text-[10px] font-semibold tracking-wide text-primary uppercase">
+                          Variation {VARIATION_ORDER.indexOf(v) + 1} · {VARIATION_THEMES[v].label}
+                        </p>
+                        {managedFrames.filter((f) => f.variation === v).map((f, i) => renderFrame(f, i))}
+                      </div>
+                    ))}
+                    {freeformFrames.length > 0 && (
+                      <div className="mt-2">
+                        <p className="mt-2 mb-1 px-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Other frames</p>
+                        {freeformFrames.map((f, i) => renderFrame(f, i))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  frames.map((f, i) => renderFrame(f, i))
+                )}
+              </div>
+            </div>
+          );
+        })()}
     </div>
   );
 }

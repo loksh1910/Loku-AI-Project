@@ -25,6 +25,7 @@ import { buildDefaultFlow, buildDefaultSitemap, type FlowEdge, type FlowNode } f
 import { ManualEditView } from "@/components/canvas/manual-edit-view";
 import type { ManualElement, ManualFrame } from "@/components/canvas/manual-types";
 import { buildHealthScreensManual } from "@/components/canvas/manual-health-seed";
+import { CodeModeView } from "@/components/canvas/code-mode-view";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAppState } from "@/components/providers/app-state-provider";
@@ -583,7 +584,7 @@ export default function SketchCanvasPage() {
   const toFrame = activeConnector ? frames.find((f) => f.id === activeConnector.connector.toFrameId) : null;
 
   return (
-    <div className="relative flex flex-1">
+    <div className="relative flex h-screen overflow-hidden">
       {viewMode === "sketch" && (
         <SketchLeftRail
           onScreensClick={() => setScreensOpen((v) => !v)}
@@ -636,7 +637,7 @@ export default function SketchCanvasPage() {
           <CanvasPipelineBar
             tab={canvasPipelineTab}
             onTabChange={(t) => {
-              if (t !== "ai" && t !== "prototype" && t !== "wireframe" && t !== "userflow" && t !== "sitemap" && t !== "manualedit") {
+              if (t !== "ai" && t !== "prototype" && t !== "wireframe" && t !== "userflow" && t !== "sitemap" && t !== "manualedit" && t !== "code") {
                 const label = PIPELINE_TABS.find((p) => p.id === t)?.label ?? t;
                 toast(`${label} is coming soon.`);
                 return;
@@ -680,7 +681,7 @@ export default function SketchCanvasPage() {
         </>
       )}
 
-      <div className="relative flex flex-1 flex-col">
+      <div className="relative flex min-h-0 flex-1 flex-col">
         <header className="z-40 flex items-center justify-between px-4 py-3">
           {editingName ? (
             <input
@@ -783,6 +784,8 @@ export default function SketchCanvasPage() {
             screensOpen={manualScreensOpen}
             onScreensOpenChange={setManualScreensOpen}
           />
+        ) : viewMode === "canvas" && canvasPipelineTab === "code" ? (
+          <CodeModeView />
         ) : viewMode === "canvas" ? (
           <CanvasModeView
             generationPrompt={generationPrompt}

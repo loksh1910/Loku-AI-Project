@@ -1,5 +1,6 @@
 import type { SketchDevice } from "@/lib/sketch-devices";
 import type { FlowNodeShape } from "@/components/canvas/flow-types";
+import type { VariationId } from "@/components/present/health-app/theme";
 
 // Reuses the same shape vocabulary (and therefore the same shape-picker UI)
 // already built for User Flow / Sitemap, plus "image" which only makes sense here.
@@ -76,6 +77,11 @@ export type ManualFrame = {
   spacing: number;
   clipContent: boolean;
   flow: FlowDirection;
+  // Which Variations-menu row this frame belongs to. Freeform frames (drawn with
+  // the Frame tool, or added blank via "+") aren't part of the variation system
+  // and just default to "bold" — only the seeded health-app screens use this
+  // meaningfully, to group/reposition/restyle whole rows per variation.
+  variation: VariationId;
 };
 
 function uid(prefix: string) {
@@ -158,8 +164,8 @@ export function newManualElement(
   };
 }
 
-export function newManualFrame(device: SketchDevice, x: number, name: string): ManualFrame {
-  return { id: uid("frame"), name, device, x, y: 0, fill: "#FFFFFF", cornerRadius: 0, paddingH: 16, paddingV: 16, spacing: 12, clipContent: true, flow: "none" };
+export function newManualFrame(device: SketchDevice, x: number, name: string, variation: VariationId = "bold"): ManualFrame {
+  return { id: uid("frame"), name, device, x, y: 0, fill: "#FFFFFF", cornerRadius: 0, paddingH: 16, paddingV: 16, spacing: 12, clipContent: true, flow: "none", variation };
 }
 
 export function newManualPath(frameId: string, points: { x: number; y: number }[]): ManualElement {

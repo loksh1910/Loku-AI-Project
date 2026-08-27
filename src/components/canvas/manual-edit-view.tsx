@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import type { SketchDevice } from "@/lib/sketch-devices";
 import { CanvasVariationsMenu } from "@/components/canvas/canvas-variations-menu";
 import type { VariationId } from "@/components/present/health-app/theme";
+import { CANVAS_DEVICE_H, ROW_GAP } from "@/components/canvas/canvas-types";
+import { buildHealthScreensManual, CANONICAL_SCREEN_NAMES } from "@/components/canvas/manual-health-seed";
 import { ManualScreensPanel } from "@/components/canvas/manual-screens-panel";
 import { ManualBottomToolbar, type ManualTool } from "@/components/canvas/manual-bottom-toolbar";
 import { ManualRightToolbar, PANELS, type PanelKey } from "@/components/canvas/manual-right-toolbar";
@@ -358,6 +360,37 @@ export function ManualEditView({
     selectSingle("frame", frame.id);
   }
 
+  // Mirrors AI mode's own Variations menu: each checked variation is a full,
+  // independently editable row of the 6 seed screens (real theme colors/radii,
+  // not just a label) stacked below the others. Only the 6 auto-managed seed
+  // frames participate — a freeform frame drawn with the Frame tool, or a
+  // screen the user has renamed, is left alone regardless of its variation tag.
+  function applyVariations(newIds: VariationId[]) {
+    const orderedNew = VARIATION_IDS.filter((v) => newIds.includes(v));
+    const isManagedRow = (f: ManualFrame) => CANONICAL_SCREEN_NAMES.includes(f.name);
+    onCommit((prev) => {
+      const removedFrameIds = new Set(
+        prev.frames.filter((f) => isManagedRow(f) && !orderedNew.includes(f.variation)).map((f) => f.id),
+      );
+      // Re-anchor every kept managed row to its current slot (elements are
+      // frame-relative, so only the frame's own y needs to move) — this keeps
+      // toggling variations off and back on from ever leaving two rows
+      // overlapping at the same y.
+      const keptFrames = prev.frames
+        .filter((f) => !removedFrameIds.has(f.id))
+        .map((f) => (isManagedRow(f) ? { ...f, y: orderedNew.indexOf(f.variation) * (CANVAS_DEVICE_H + ROW_GAP) } : f));
+      const keptElements = prev.elements.filter((el) => !removedFrameIds.has(el.frameId));
+      const presentVariations = new Set(keptFrames.filter(isManagedRow).map((f) => f.variation));
+      const missing = orderedNew.filter((v) => !presentVariations.has(v));
+      const added = missing.map((v) => buildHealthScreensManual(v, orderedNew.indexOf(v)));
+      return {
+        frames: [...keptFrames, ...added.flatMap((a) => a.frames)],
+        elements: [...keptElements, ...added.flatMap((a) => a.elements)],
+      };
+    });
+    setVariations(orderedNew);
+  }
+
   function renameFrame(id: string, name: string) {
     onFramesChange(frames.map((f) => (f.id === id ? { ...f, name } : f)));
   }
@@ -611,7 +644,7 @@ export function ManualEditView({
           masked={!!selectedElement?.isMask}
           onBooleanOp={handleBooleanOp}
         />
-        <CanvasVariationsMenu variationIds={VARIATION_IDS} active={variations} onApply={setVariations} />
+        <CanvasVariationsMenu variationIds={VARIATION_IDS} active={variations} onApply={applyVariations} />
       </div>
 
       <ManualRightToolbar

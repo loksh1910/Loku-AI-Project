@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { HelpCircle, Plus } from "lucide-react";
+import { HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SketchDevice } from "@/lib/sketch-devices";
 import { CanvasVariationsMenu } from "@/components/canvas/canvas-variations-menu";
 import type { VariationId } from "@/components/present/health-app/theme";
 import { ManualScreensPanel } from "@/components/canvas/manual-screens-panel";
 import { ManualBottomToolbar, type ManualTool } from "@/components/canvas/manual-bottom-toolbar";
-import { ManualRightToolbar, type PanelKey } from "@/components/canvas/manual-right-toolbar";
+import { ManualRightToolbar, PANELS, type PanelKey } from "@/components/canvas/manual-right-toolbar";
 import { ManualTopTools, type BooleanOp } from "@/components/canvas/manual-top-tools";
 import {
   newManualElement,
@@ -74,6 +74,7 @@ export function ManualEditView({
   const viewportRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const resizeRef = useRef<ResizeState | null>(null);
+  const frameResizeRef = useRef<ResizeState | null>(null);
 
   const [tool, setTool] = useState<ManualTool>("pointer");
   const [selection, setSelection] = useState<Selection>(null);
@@ -216,12 +217,37 @@ export function ManualEditView({
       }
       onElementsChange(elements.map((el) => (el.id === r.id ? { ...el, x, y, w, h } : el)));
     }
+    if (frameResizeRef.current) {
+      const r = frameResizeRef.current;
+      const dx = (e.clientX - r.startClientX) / zoom;
+      const dy = (e.clientY - r.startClientY) / zoom;
+      let { startX: x, startY: y, startW: w, startH: h } = r;
+      if (r.corner === "se") {
+        w = Math.max(60, r.startW + dx);
+        h = Math.max(60, r.startH + dy);
+      } else if (r.corner === "sw") {
+        w = Math.max(60, r.startW - dx);
+        h = Math.max(60, r.startH + dy);
+        x = r.startX + (r.startW - w);
+      } else if (r.corner === "ne") {
+        w = Math.max(60, r.startW + dx);
+        h = Math.max(60, r.startH - dy);
+        y = r.startY + (r.startH - h);
+      } else {
+        w = Math.max(60, r.startW - dx);
+        h = Math.max(60, r.startH - dy);
+        x = r.startX + (r.startW - w);
+        y = r.startY + (r.startH - h);
+      }
+      onFramesChange(frames.map((f) => (f.id === r.id ? { ...f, x, y, device: { ...f.device, width: w, height: h } } : f)));
+    }
   }
 
   function handleViewportPointerUp() {
     panStart.current = null;
     dragRef.current = null;
     resizeRef.current = null;
+    frameResizeRef.current = null;
     if (frameDraft && frameDraft.w > 20 && frameDraft.h > 20) {
       const device: SketchDevice = { label: "Frame", width: Math.round(frameDraft.w), height: Math.round(frameDraft.h) };
       const newFrame = { ...newManualFrame(device, frameDraft.x, `Frame ${frames.length + 1}`), y: frameDraft.y };
@@ -298,6 +324,21 @@ export function ManualEditView({
     resizeRef.current = { id: el.id, corner, startX: el.x, startY: el.y, startW: el.w, startH: el.h, startClientX: e.clientX, startClientY: e.clientY };
   }
 
+  function startFrameResize(e: React.PointerEvent, frame: ManualFrame, corner: "nw" | "ne" | "sw" | "se") {
+    e.stopPropagation();
+    onBeginChange();
+    frameResizeRef.current = {
+      id: frame.id,
+      corner,
+      startX: frame.x,
+      startY: frame.y,
+      startW: frame.device.width,
+      startH: frame.device.height,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+    };
+  }
+
   function addShape(shape: FlowNodeShape) {
     const targetFrame = frames.find((f) => f.id === (selection?.kind === "frame" ? selection.id : elements.find((el) => el.id === selection?.id)?.frameId)) ?? frames[0];
     if (!targetFrame) return;
@@ -338,9 +379,9 @@ export function ManualEditView({
     if (!frame) return;
     onCommit((prev) => {
       const children = prev.elements.filter((el) => el.frameId === frameId);
-      let cursor = frame.padding;
+      let cursor = direction === "horizontal" ? frame.paddingH : frame.paddingV;
       const updated = children.map((el) => {
-        const patch = direction === "horizontal" ? { x: cursor, y: frame.padding } : { x: frame.padding, y: cursor };
+        const patch = direction === "horizontal" ? { x: cursor, y: frame.paddingV } : { x: frame.paddingH, y: cursor };
         cursor += (direction === "horizontal" ? el.w : el.h) + frame.spacing;
         return { ...el, ...patch };
       });
@@ -409,6 +450,19 @@ export function ManualEditView({
   const selectedElement = selection?.kind === "element" ? (elements.find((el) => el.id === selection.id) ?? null) : null;
   const parentFrame = selectedElement ? (frames.find((f) => f.id === selectedElement.frameId) ?? null) : selectedFrame;
 
+  // Fill/Appearance also work on a directly-selected frame (its own fill/corner
+  // radius), so they're only "unmet" when neither an element nor a frame is selected.
+  const panelElementOnly = panel === "typography" || panel === "stroke" || panel === "effects";
+  const panelElementOrFrame = panel === "appearance" || panel === "fill";
+  const panelNeedsTarget = panel === "position" || panel === "layout";
+  const noSelectionMessage =
+    panel &&
+    ((panelElementOnly && !selectedElement) ||
+      (panelElementOrFrame && !selectedElement && !selectedFrame) ||
+      (panelNeedsTarget && !parentFrame))
+      ? `Select ${panelElementOnly ? "an element" : panelElementOrFrame ? "an element or screen" : "a screen or element"} to edit its ${PANELS.find((p) => p.id === panel)?.label}`
+      : null;
+
   return (
     <div className="relative flex-1 overflow-hidden bg-background">
       <div
@@ -423,55 +477,41 @@ export function ManualEditView({
           {frames.map((frame) => {
             const w = frame.device.width * zoom;
             const h = frame.device.height * zoom;
-            const frameElements = elements.filter((el) => el.frameId === frame.id);
             const isSelected = selection?.kind === "frame" && selection.id === frame.id;
             return (
-              <div key={frame.id} className="absolute" style={{ left: frame.x * zoom, top: frame.y * zoom, width: w }}>
-                {renamingId === frame.id ? (
-                  <input
-                    autoFocus
-                    defaultValue={frame.name}
-                    onBlur={(e) => {
-                      renameFrame(frame.id, e.target.value.trim() || frame.name);
-                      setRenamingId(null);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") e.currentTarget.blur();
-                      if (e.key === "Escape") setRenamingId(null);
-                    }}
-                    className="mb-1 w-32 rounded bg-secondary px-1 py-0.5 text-[11px] outline-none"
-                  />
-                ) : (
-                  <p onDoubleClick={() => setRenamingId(frame.id)} className="mb-1 w-fit max-w-full truncate text-[11px] text-muted-foreground">
-                    {frame.name}
-                  </p>
-                )}
+              <div key={frame.id} className="absolute" style={{ left: frame.x * zoom, top: frame.y * zoom, width: w, height: h }}>
+                {/* Absolutely positioned above the frame box (not stacked in normal flow) so
+                    the wrapper's own bounds exactly equal the frame's box bounds — otherwise
+                    this label's height would silently shift the box down by a constant, unscaled
+                    amount, throwing off alignment between the frame and its canvas-absolute
+                    elements (which position purely from frame.x/y) more and more as zoom drops. */}
+                <div className="absolute bottom-full left-0 mb-1 w-full">
+                  {renamingId === frame.id ? (
+                    <input
+                      autoFocus
+                      defaultValue={frame.name}
+                      onBlur={(e) => {
+                        renameFrame(frame.id, e.target.value.trim() || frame.name);
+                        setRenamingId(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                        if (e.key === "Escape") setRenamingId(null);
+                      }}
+                      className="w-32 rounded bg-secondary px-1 py-0.5 text-[11px] outline-none"
+                    />
+                  ) : (
+                    <p onDoubleClick={() => setRenamingId(frame.id)} className="w-fit max-w-full truncate text-[11px] text-muted-foreground">
+                      {frame.name}
+                    </p>
+                  )}
+                </div>
                 <div
                   onPointerDown={(e) => handleFramePointerDown(e, frame)}
                   onDoubleClick={(e) => handleFrameDoubleClick(e, frame)}
-                  className={cn(
-                    "relative touch-none bg-white",
-                    frame.clipContent && "overflow-hidden",
-                    isSelected ? "ring-2 ring-primary" : "border border-border/40",
-                  )}
-                  style={{ width: w, height: h }}
+                  className={cn("absolute inset-0 touch-none", isSelected ? "ring-2 ring-primary" : "border border-border/40")}
+                  style={{ background: frame.fill, borderRadius: frame.cornerRadius * zoom }}
                 >
-                  {frameElements.map((el) => (
-                    <ManualElementView
-                      key={el.id}
-                      el={el}
-                      zoom={zoom}
-                      selected={selectedIds.includes(el.id)}
-                      editing={editingTextId === el.id}
-                      onPointerDownDrag={(e) => startElementDrag(e, el)}
-                      onStartResize={(e, corner) => startResize(e, el, corner)}
-                      onDoubleClickText={() => el.kind === "text" && setEditingTextId(el.id)}
-                      onCommitText={(text) => {
-                        onCommit((prev) => ({ frames: prev.frames, elements: prev.elements.map((e2) => (e2.id === el.id ? { ...e2, text } : e2)) }));
-                        setEditingTextId(null);
-                      }}
-                    />
-                  ))}
                   {penDraft && penDraft.frameId === frame.id && (
                     <svg className="pointer-events-none absolute inset-0" width={w} height={h}>
                       <polyline
@@ -486,7 +526,53 @@ export function ManualEditView({
                     </svg>
                   )}
                 </div>
+                {isSelected && (
+                  <>
+                    {(["nw", "ne", "sw", "se"] as const).map((corner) => (
+                      <div
+                        key={corner}
+                        onPointerDown={(e) => startFrameResize(e, frame, corner)}
+                        className="absolute rounded-sm border border-primary bg-background"
+                        style={{
+                          width: 9,
+                          height: 9,
+                          cursor: `${corner}-resize`,
+                          left: corner.includes("w") ? -4.5 : undefined,
+                          right: corner.includes("e") ? -4.5 : undefined,
+                          top: corner.includes("n") ? -4.5 : undefined,
+                          bottom: corner.includes("s") ? -4.5 : undefined,
+                        }}
+                      />
+                    ))}
+                  </>
+                )}
               </div>
+            );
+          })}
+
+          {/* Elements render in their own flat, canvas-absolute layer — never
+              clipped by their origin frame's box — so dragging one out of its
+              screen keeps it fully visible anywhere on the canvas. */}
+          {elements.map((el) => {
+            const parent = frames.find((f) => f.id === el.frameId);
+            if (!parent) return null;
+            return (
+              <ManualElementView
+                key={el.id}
+                el={el}
+                zoom={zoom}
+                originX={parent.x}
+                originY={parent.y}
+                selected={selectedIds.includes(el.id)}
+                editing={editingTextId === el.id}
+                onPointerDownDrag={(e) => startElementDrag(e, el)}
+                onStartResize={(e, corner) => startResize(e, el, corner)}
+                onDoubleClickText={() => el.kind !== "path" && setEditingTextId(el.id)}
+                onCommitText={(text) => {
+                  onCommit((prev) => ({ frames: prev.frames, elements: prev.elements.map((e2) => (e2.id === el.id ? { ...e2, text } : e2)) }));
+                  setEditingTextId(null);
+                }}
+              />
             );
           })}
 
@@ -498,6 +584,12 @@ export function ManualEditView({
           )}
         </div>
       </div>
+
+      {noSelectionMessage && (
+        <div className="absolute top-16 left-1/2 z-40 -translate-x-1/2 rounded-full border border-border/60 bg-card px-3.5 py-1.5 text-xs text-muted-foreground shadow-lg">
+          {noSelectionMessage}
+        </div>
+      )}
 
       {screensOpen && (
         <ManualScreensPanel
@@ -524,6 +616,7 @@ export function ManualEditView({
 
       <ManualRightToolbar
         frame={parentFrame}
+        directFrame={selectedFrame}
         element={selectedElement}
         onUpdateFrame={updateSelectedFrame}
         onUpdateElement={updateSelectedElement}
@@ -547,15 +640,6 @@ export function ManualEditView({
         </button>
       </div>
 
-      {!screensOpen && (
-        <button
-          onClick={() => onScreensOpenChange(true)}
-          className="absolute top-14 left-3 z-30 flex h-8 w-8 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground hover:bg-secondary"
-          aria-label="Open Screens"
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
-      )}
     </div>
   );
 }
@@ -563,6 +647,8 @@ export function ManualEditView({
 function ManualElementView({
   el,
   zoom,
+  originX,
+  originY,
   selected,
   editing,
   onPointerDownDrag,
@@ -572,6 +658,8 @@ function ManualElementView({
 }: {
   el: ManualElement;
   zoom: number;
+  originX: number;
+  originY: number;
   selected: boolean;
   editing: boolean;
   onPointerDownDrag: (e: React.PointerEvent) => void;
@@ -582,9 +670,11 @@ function ManualElementView({
   const HANDLE = 8;
   const scaleX = el.flipH ? -1 : 1;
   const scaleY = el.flipV ? -1 : 1;
+  const canvasX = originX + el.x;
+  const canvasY = originY + el.y;
   const shapeStyle: React.CSSProperties = {
-    left: el.x * zoom,
-    top: el.y * zoom,
+    left: canvasX * zoom,
+    top: canvasY * zoom,
     width: el.w * zoom,
     height: el.h * zoom,
     transform: `rotate(${el.rotation}deg) scale(${scaleX}, ${scaleY})`,
@@ -593,16 +683,15 @@ function ManualElementView({
   };
 
   if (el.kind === "path" && el.points) {
-    const minX = el.x;
-    const minY = el.y;
     return (
-      <svg className="absolute" style={{ left: minX * zoom, top: minY * zoom, width: el.w * zoom || 1, height: el.h * zoom || 1, opacity: el.opacity / 100 }}>
+      <svg className="absolute" style={{ left: canvasX * zoom, top: canvasY * zoom, width: el.w * zoom || 1, height: el.h * zoom || 1, opacity: el.opacity / 100 }}>
         <polygon
-          points={el.points.map((p) => `${(p.x - minX) * zoom},${(p.y - minY) * zoom}`).join(" ")}
+          points={el.points.map((p) => `${(p.x - el.x) * zoom},${(p.y - el.y) * zoom}`).join(" ")}
           fill={el.fill}
           fillOpacity={el.fillOpacity / 100}
           stroke={el.strokeWidth > 0 ? el.stroke : "none"}
-          strokeWidth={el.strokeWidth}
+          strokeWidth={el.strokeWidth * zoom}
+          strokeLinecap={el.strokeCap === "round" ? "round" : el.strokeCap === "square" ? "square" : "butt"}
         />
       </svg>
     );
@@ -615,21 +704,37 @@ function ManualElementView({
         ? "polygon(50% 0%, 0% 100%, 100% 100%)"
         : undefined;
 
+  const radii =
+    el.kind === "roundedRect" || el.kind === "rect"
+      ? `${el.cornerRadiusTL * zoom}px ${el.cornerRadiusTR * zoom}px ${el.cornerRadiusBR * zoom}px ${el.cornerRadiusBL * zoom}px`
+      : el.kind === "circle"
+        ? "999px"
+        : undefined;
+
   const boxStyle: React.CSSProperties = {
     width: "100%",
     height: "100%",
-    background: el.kind === "text" ? "transparent" : el.fill,
+    background: el.kind === "text" ? "transparent" : el.fillType === "gradient" ? `linear-gradient(135deg, ${el.fill}, ${el.fillTo})` : el.fill,
     opacity: el.kind === "text" ? 1 : el.fillOpacity / 100,
-    border: el.strokeWidth > 0 && el.kind !== "text" ? `${el.strokeWidth}px solid ${el.stroke}` : undefined,
-    borderRadius: el.kind === "roundedRect" ? el.cornerRadius : el.kind === "circle" ? 999 : el.kind === "rect" ? el.cornerRadius : undefined,
+    border: el.strokeWidth > 0 && el.kind !== "text" ? `${Math.max(0.5, el.strokeWidth * zoom)}px solid ${el.stroke}` : undefined,
+    borderRadius: radii,
     clipPath,
-    boxShadow: el.hasShadow ? `${el.shadowX}px ${el.shadowY}px ${el.shadowBlur}px rgba(0,0,0,0)` : undefined,
   };
   if (el.hasShadow) {
-    const c = el.shadowColor;
-    const alpha = el.shadowOpacity / 100;
-    boxStyle.boxShadow = `${el.shadowX}px ${el.shadowY}px ${el.shadowBlur}px ${hexToRgba(c, alpha)}`;
+    const inset = el.effectType === "innerShadow" ? "inset " : "";
+    boxStyle.boxShadow = `${inset}${el.shadowX * zoom}px ${el.shadowY * zoom}px ${el.shadowBlur * zoom}px ${el.shadowSpread * zoom}px ${hexToRgba(el.shadowColor, el.shadowOpacity / 100)}`;
   }
+
+  const justify = el.verticalAlign === "top" ? "flex-start" : el.verticalAlign === "bottom" ? "flex-end" : "center";
+  const labelStyle: React.CSSProperties = {
+    color: el.textColor,
+    fontSize: el.fontSize * zoom,
+    fontFamily: el.fontFamily,
+    fontWeight: el.fontWeight,
+    letterSpacing: el.letterSpacing * zoom,
+    textAlign: el.textAlign,
+    whiteSpace: "pre-line",
+  };
 
   return (
     <div
@@ -637,6 +742,7 @@ function ManualElementView({
         e.stopPropagation();
         onPointerDownDrag(e);
       }}
+      onDoubleClick={onDoubleClickText}
       className={cn("absolute cursor-move", selected && "ring-2 ring-primary", el.isMask && "outline outline-1 outline-dashed outline-[#8E51FF]")}
       style={shapeStyle}
     >
@@ -648,29 +754,44 @@ function ManualElementView({
             onBlur={(e) => onCommitText(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
             onPointerDown={(e) => e.stopPropagation()}
-            style={{ color: el.fill === "transparent" ? "#111111" : el.fill, fontSize: el.fontSize * zoom, fontFamily: el.fontFamily, fontWeight: el.fontWeight, textAlign: el.textAlign }}
+            onDoubleClick={(e) => e.stopPropagation()}
+            style={{ ...labelStyle, whiteSpace: undefined }}
             className="h-full w-full bg-transparent outline-none"
           />
         ) : (
-          <span
-            onDoubleClick={onDoubleClickText}
-            style={{
-              display: "block",
-              color: "#111111",
-              fontSize: el.fontSize * zoom,
-              fontFamily: el.fontFamily,
-              fontWeight: el.fontWeight,
-              lineHeight: `${el.lineHeight * zoom}px`,
-              letterSpacing: el.letterSpacing,
-              textAlign: el.textAlign,
-            }}
-            className="pointer-events-none block h-full w-full truncate"
-          >
+          <span style={labelStyle} className="pointer-events-none block h-full w-full truncate">
             {el.text}
           </span>
         )
       ) : (
-        <div style={boxStyle} />
+        <div className="relative h-full w-full" onDoubleClick={onDoubleClickText}>
+          <div style={boxStyle} />
+          {editing ? (
+            <input
+              autoFocus
+              defaultValue={el.text}
+              onBlur={(e) => onCommitText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+              onPointerDown={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+              style={{ ...labelStyle, textAlign: el.textAlign, padding: `0 ${6 * zoom}px` }}
+              className="absolute inset-0 h-full w-full bg-transparent outline-none"
+            />
+          ) : (
+            el.text && (
+              <div
+                className="pointer-events-none absolute inset-0 flex items-center overflow-hidden"
+                style={{
+                  justifyContent: el.textAlign === "left" ? "flex-start" : el.textAlign === "right" ? "flex-end" : "center",
+                  alignItems: justify === "flex-start" ? "flex-start" : justify === "flex-end" ? "flex-end" : "center",
+                  padding: `0 ${6 * zoom}px`,
+                }}
+              >
+                <span style={labelStyle}>{el.text}</span>
+              </div>
+            )
+          )}
+        </div>
       )}
       {selected && (
         <>

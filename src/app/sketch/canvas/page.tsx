@@ -24,6 +24,7 @@ import { UserFlowView } from "@/components/canvas/user-flow-view";
 import { buildDefaultFlow, buildDefaultSitemap, type FlowEdge, type FlowNode } from "@/components/canvas/flow-types";
 import { ManualEditView } from "@/components/canvas/manual-edit-view";
 import type { ManualElement, ManualFrame } from "@/components/canvas/manual-types";
+import { buildHealthScreensManual } from "@/components/canvas/manual-health-seed";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAppState } from "@/components/providers/app-state-provider";
@@ -99,7 +100,7 @@ export default function SketchCanvasPage() {
   const [sitemapPast, setSitemapPast] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }[]>([]);
   const [sitemapFuture, setSitemapFuture] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }[]>([]);
   const [manualScreensOpen, setManualScreensOpen] = useState(true);
-  const [manualGraph, setManualGraph] = useState<{ frames: ManualFrame[]; elements: ManualElement[] }>({ frames: [], elements: [] });
+  const [manualGraph, setManualGraph] = useState<{ frames: ManualFrame[]; elements: ManualElement[] }>(() => buildHealthScreensManual());
   const [manualPast, setManualPast] = useState<{ frames: ManualFrame[]; elements: ManualElement[] }[]>([]);
   const [manualFuture, setManualFuture] = useState<{ frames: ManualFrame[]; elements: ManualElement[] }[]>([]);
 

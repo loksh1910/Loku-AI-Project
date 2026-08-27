@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Undo2, Redo2, Share2, Sparkles, HelpCircle } from "lucide-react";
 import { SketchLeftRail } from "@/components/sketch/sketch-left-rail";
 import { ScreensPanel } from "@/components/sketch/screens-panel";
@@ -21,7 +21,7 @@ import { CanvasModeView } from "@/components/canvas/canvas-mode-view";
 import { CanvasPipelineBar, PIPELINE_TABS, type PipelineTab } from "@/components/canvas/canvas-pipeline-bar";
 import { defaultVariationRow, type CanvasItem } from "@/components/canvas/canvas-types";
 import { UserFlowView } from "@/components/canvas/user-flow-view";
-import { buildDefaultFlow, buildDefaultSitemap, type FlowEdge, type FlowNode } from "@/components/canvas/flow-types";
+import { buildDefaultFlow, buildDefaultSitemap, buildEmptyFlow, type FlowEdge, type FlowNode } from "@/components/canvas/flow-types";
 import { ManualEditView } from "@/components/canvas/manual-edit-view";
 import type { ManualElement, ManualFrame } from "@/components/canvas/manual-types";
 import { buildHealthScreensManual } from "@/components/canvas/manual-health-seed";
@@ -52,9 +52,25 @@ function uid() {
 
 type Snapshot = { frames: SketchFrame[]; elements: SketchElement[] };
 
-export default function SketchCanvasPage() {
+function SketchCanvasPage() {
   const { isSignedIn, hydrated, userName, touchRecentProject } = useAppState();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const entryParam = searchParams.get("entry");
+  // "Start from Template" reuses this exact page — same Present/Canvas modes,
+  // same pipeline tabs — it just skips Sketch mode entirely and boots straight
+  // into Present with the template's screens already "generated". Every other
+  // piece of state below is untouched by this: the health-app screens are the
+  // same seeded content Sketch-to-UI itself generates.
+  const fromTemplate = entryParam === "template";
+  // "Sitemap/User Flow to UI" also reuses this exact page and skips Sketch —
+  // but unlike the template entry, nothing's generated yet: it boots into the
+  // "flow" mode (a blank User Flow or Sitemap canvas, picked on /flow) and the
+  // user draws their own structure before clicking Generate UI.
+  const flowKind: "userflow" | "sitemap" | null =
+    entryParam === "userflow" ? "userflow" : entryParam === "sitemap" ? "sitemap" : null;
+  // Neither entry has a sketch of its own to switch back to.
+  const noSketchMode = fromTemplate || flowKind !== null;
 
   const [frames, setFrames] = useState<SketchFrame[]>([]);
   const [elements, setElements] = useState<SketchElement[]>([]);
@@ -76,14 +92,16 @@ export default function SketchCanvasPage() {
     x: number;
     y: number;
   } | null>(null);
-  const [projectName, setProjectName] = useState("Project name");
+  const [projectName, setProjectName] = useState(
+    fromTemplate ? "HealthVisor App" : flowKind === "sitemap" ? "Sitemap Project" : flowKind === "userflow" ? "User Flow Project" : "Project name",
+  );
   const [editingName, setEditingName] = useState(false);
   const [flowStage, setFlowStage] = useState<"idle" | "questions" | "building">("idle");
-  const [viewMode, setViewMode] = useState<ViewMode>("sketch");
+  const [viewMode, setViewMode] = useState<ViewMode>(fromTemplate ? "present" : flowKind ? "flow" : "sketch");
   const [generationPrompt, setGenerationPrompt] = useState("");
   const [maxVariations, setMaxVariations] = useState(3);
   const [presentPanel, setPresentPanel] = useState<PresentPanel>("screens");
-  const [hasGenerated, setHasGenerated] = useState(false);
+  const [hasGenerated, setHasGenerated] = useState(fromTemplate);
   const [presentTool, setPresentTool] = useState<PresentTool>("pointer");
   const [presentDeviceMode, setPresentDeviceMode] = useState<DeviceMode>("mobile");
   const [presentActiveScreen, setPresentActiveScreen] = useState<HealthScreenId>("splash");
@@ -94,10 +112,14 @@ export default function SketchCanvasPage() {
   const [canvasItems, setCanvasItems] = useState<CanvasItem[]>(() => defaultVariationRow("bold", 0));
   const [canvasPast, setCanvasPast] = useState<CanvasItem[][]>([]);
   const [canvasFuture, setCanvasFuture] = useState<CanvasItem[][]>([]);
-  const [flowGraph, setFlowGraph] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }>(() => buildDefaultFlow());
+  const [flowGraph, setFlowGraph] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }>(() =>
+    flowKind === "userflow" ? buildEmptyFlow() : buildDefaultFlow(),
+  );
   const [flowPast, setFlowPast] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }[]>([]);
   const [flowFuture, setFlowFuture] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }[]>([]);
-  const [sitemapGraph, setSitemapGraph] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }>(() => buildDefaultSitemap());
+  const [sitemapGraph, setSitemapGraph] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }>(() =>
+    flowKind === "sitemap" ? buildEmptyFlow() : buildDefaultSitemap(),
+  );
   const [sitemapPast, setSitemapPast] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }[]>([]);
   const [sitemapFuture, setSitemapFuture] = useState<{ nodes: FlowNode[]; edges: FlowEdge[] }[]>([]);
   const [manualScreensOpen, setManualScreensOpen] = useState(true);
@@ -591,6 +613,7 @@ export default function SketchCanvasPage() {
           screensActive={screensOpen}
         />
       )}
+      {viewMode === "flow" && <SketchLeftRail />}
       {viewMode === "present" && <PresentLeftRail panel={presentPanel} onPanelChange={setPresentPanel} />}
       {viewMode === "canvas" && canvasPipelineTab === "manualedit" && (
         <SketchLeftRail onScreensClick={() => setManualScreensOpen((v) => !v)} screensActive={manualScreensOpen} />
@@ -681,6 +704,27 @@ export default function SketchCanvasPage() {
         </>
       )}
 
+      {viewMode === "flow" && (
+        <div className="absolute top-3 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
+          <button
+            onClick={flowKind === "sitemap" ? sitemapUndo : flowUndo}
+            disabled={flowKind === "sitemap" ? sitemapPast.length === 0 : flowPast.length === 0}
+            className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
+            aria-label="Undo"
+          >
+            <Undo2 className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={flowKind === "sitemap" ? sitemapRedo : flowRedo}
+            disabled={flowKind === "sitemap" ? sitemapFuture.length === 0 : flowFuture.length === 0}
+            className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
+            aria-label="Redo"
+          >
+            <Redo2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
       <div className="relative flex min-h-0 flex-1 flex-col">
         <header className="z-40 flex items-center justify-between px-4 py-3">
           {editingName ? (
@@ -705,7 +749,8 @@ export default function SketchCanvasPage() {
           )}
 
           <div className="flex items-center gap-2">
-            {viewMode === "sketch" && frames.length > 0 && (
+            {((viewMode === "sketch" && frames.length > 0) ||
+              (viewMode === "flow" && (flowKind === "sitemap" ? sitemapGraph.nodes.length : flowGraph.nodes.length) > 2)) && (
               <button
                 onClick={() => setFlowStage("questions")}
                 className="flex items-center gap-1.5 rounded-full border border-primary px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
@@ -714,7 +759,9 @@ export default function SketchCanvasPage() {
                 Generate UI
               </button>
             )}
-            {hasGenerated && <ModeSwitch mode={viewMode} onModeChange={setViewMode} />}
+            {hasGenerated && (
+              <ModeSwitch mode={viewMode} onModeChange={setViewMode} modes={noSketchMode ? ["present", "canvas"] : undefined} />
+            )}
             <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
               <ThemeToggle />
               <button
@@ -739,7 +786,44 @@ export default function SketchCanvasPage() {
           </div>
         </header>
 
-        {viewMode === "present" ? (
+        {viewMode === "flow" ? (
+          <div className="relative flex flex-1 overflow-hidden">
+            <UserFlowView
+              nodes={flowKind === "sitemap" ? sitemapGraph.nodes : flowGraph.nodes}
+              edges={flowKind === "sitemap" ? sitemapGraph.edges : flowGraph.edges}
+              onNodesChange={(nodes) =>
+                flowKind === "sitemap" ? setSitemapGraph((g) => ({ ...g, nodes })) : setFlowGraph((g) => ({ ...g, nodes }))
+              }
+              onCommit={flowKind === "sitemap" ? sitemapCommit : flowCommit}
+              onBeginChange={flowKind === "sitemap" ? sitemapBeginChange : flowBeginChange}
+              onUndo={flowKind === "sitemap" ? sitemapUndo : flowUndo}
+              onRedo={flowKind === "sitemap" ? sitemapRedo : flowRedo}
+              enableAutoArrange={flowKind === "sitemap"}
+            />
+
+            {flowStage === "building" && (
+              <AiBuildingOverlay
+                onComplete={() => {
+                  setFlowStage("idle");
+                  setHasGenerated(true);
+                  setViewMode("present");
+                }}
+              />
+            )}
+
+            {flowStage === "questions" && (
+              <GenerateQuestionsOverlay
+                onClose={() => setFlowStage("idle")}
+                onComplete={(answers: GenerateAnswers) => {
+                  setGenerationPrompt(answers.extraNotes || answers.selections.type || "Build my app");
+                  const count = Number(answers.selections.optionsCount);
+                  setMaxVariations(count >= 1 && count <= 3 ? count : 3);
+                  setFlowStage("building");
+                }}
+              />
+            )}
+          </div>
+        ) : viewMode === "present" ? (
           <PresentModeView
             generationPrompt={generationPrompt}
             maxVariations={maxVariations}
@@ -904,5 +988,14 @@ export default function SketchCanvasPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SketchCanvasPageRoute() {
+  // useSearchParams() requires a Suspense boundary above it in the App Router.
+  return (
+    <Suspense fallback={null}>
+      <SketchCanvasPage />
+    </Suspense>
   );
 }

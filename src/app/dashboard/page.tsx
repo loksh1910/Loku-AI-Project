@@ -41,7 +41,7 @@ type EntryCard = {
 const ENTRY_CARDS: EntryCard[] = [
   { label: "Start from Template", icon: LayoutTemplate, href: "/templates" },
   { label: "Sketch to UI", icon: PencilRuler, href: "/sketch" },
-  { label: "Sitemap/user flow to UI", icon: Share2 },
+  { label: "Sitemap/user flow to UI", icon: Share2, href: "/flow" },
   { label: "Start with your design", icon: UploadCloud },
   { label: "Start from Scratch", icon: Plus },
 ];

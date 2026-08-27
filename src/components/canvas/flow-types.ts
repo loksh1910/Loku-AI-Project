@@ -126,6 +126,18 @@ export function newFlowNode(id: string, label: string, x: number, y: number): Fl
   return makeNode(id, label, x, y, "step");
 }
 
+// A genuinely blank canvas for the Sitemap/User-Flow-to-UI entry point — just
+// the two fixed sentinel nodes, no steps or connections, so the user builds
+// the whole thing themselves with the toolbar rather than starting from this
+// app's own pre-authored example (that example is what buildDefaultFlow /
+// buildDefaultSitemap are for, used once a project already exists).
+export function buildEmptyFlow(): { nodes: FlowNode[]; edges: FlowEdge[] } {
+  return {
+    nodes: [makeNode("start", "Start", 0, 0, "start"), makeNode("end", "End", 0, 200, "end")],
+    edges: [],
+  };
+}
+
 // A sitemap is a page-hierarchy tree, not an interaction flow — no decisions
 // or loops, just the app's own 6 real screens as parent/child pages.
 export function buildDefaultSitemap(): { nodes: FlowNode[]; edges: FlowEdge[] } {

@@ -30,6 +30,7 @@ import type {
   SketchElement,
   SketchFrame,
 } from "@/components/sketch/sketch-types";
+import { Tip } from "@/components/ui/tip";
 
 const BASICS: { type: BasicElementType; label: string; icon: typeof Square }[] = [
   { type: "container", label: "Container", icon: Square },
@@ -222,14 +223,16 @@ export function RightSketchTools({
                   <div className="flex items-center gap-2 rounded-lg bg-secondary px-2 py-1.5 text-xs">
                     <Grid3x3 className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="flex-1">Grid 10px</span>
-                    <button
-                      onClick={() => onFrameLayoutChange({ showGrid: !activeFrame?.showGrid })}
-                      aria-label="Toggle grid guide"
-                    >
-                      <Eye
-                        className={`h-3.5 w-3.5 ${activeFrame?.showGrid ? "text-primary" : "text-muted-foreground"}`}
-                      />
-                    </button>
+                    <Tip label="Toggle grid guide">
+                      <button
+                        onClick={() => onFrameLayoutChange({ showGrid: !activeFrame?.showGrid })}
+                        aria-label="Toggle grid guide"
+                      >
+                        <Eye
+                          className={`h-3.5 w-3.5 ${activeFrame?.showGrid ? "text-primary" : "text-muted-foreground"}`}
+                        />
+                      </button>
+                    </Tip>
                   </div>
                 </Field>
                 <p className="mb-1 text-xs font-semibold">Auto Layout</p>
@@ -379,18 +382,19 @@ export function RightSketchTools({
         )}
 
         {TOOLS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => toggle(t.key)}
-            className={`rounded-full p-2.5 ${
-              activePanel === t.key
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-            }`}
-            aria-label={t.label}
-          >
-            <t.icon className="h-4 w-4" />
-          </button>
+          <Tip key={t.key} label={t.label} side="left">
+            <button
+              onClick={() => toggle(t.key)}
+              className={`rounded-full p-2.5 ${
+                activePanel === t.key
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              }`}
+              aria-label={t.label}
+            >
+              <t.icon className="h-4 w-4" />
+            </button>
+          </Tip>
         ))}
       </div>
 

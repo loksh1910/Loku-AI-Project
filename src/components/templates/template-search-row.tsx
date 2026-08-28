@@ -2,6 +2,7 @@
 
 import { Search, SlidersHorizontal, Smartphone, Monitor } from "lucide-react";
 import type { TemplateDevice } from "@/lib/templates-data";
+import { Tip } from "@/components/ui/tip";
 import { cn } from "@/lib/utils";
 
 export function TemplateSearchRow({
@@ -30,46 +31,52 @@ export function TemplateSearchRow({
           className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
       </div>
-      <button
-        onClick={onFilterClick}
-        className={cn(
-          "relative rounded-full border p-2.5 text-muted-foreground hover:text-foreground",
-          activeFilterCount > 0
-            ? "border-primary/50 text-primary"
-            : "border-border/60",
-        )}
-        aria-label="Filters"
-      >
-        <SlidersHorizontal className="h-4 w-4" />
-        {activeFilterCount > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
-            {activeFilterCount}
-          </span>
-        )}
-      </button>
+      <Tip label="Filters">
+        <button
+          onClick={onFilterClick}
+          className={cn(
+            "relative rounded-full border p-2.5 text-muted-foreground hover:text-foreground",
+            activeFilterCount > 0
+              ? "border-primary/50 text-primary"
+              : "border-border/60",
+          )}
+          aria-label="Filters"
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          {activeFilterCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
+      </Tip>
       <div className="flex items-center gap-1 rounded-full border border-border/60 p-1">
-        <button
-          onClick={() => onDeviceChange("mobile")}
-          className={cn(
-            "rounded-full p-1.5",
-            device === "mobile"
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground",
-          )}
-          aria-label="Mobile templates"
-        >
-          <Smartphone className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => onDeviceChange("web")}
-          className={cn(
-            "rounded-full p-1.5",
-            device === "web" ? "bg-primary text-primary-foreground" : "text-muted-foreground",
-          )}
-          aria-label="Web templates"
-        >
-          <Monitor className="h-4 w-4" />
-        </button>
+        <Tip label="Mobile templates">
+          <button
+            onClick={() => onDeviceChange("mobile")}
+            className={cn(
+              "rounded-full p-1.5",
+              device === "mobile"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground",
+            )}
+            aria-label="Mobile templates"
+          >
+            <Smartphone className="h-4 w-4" />
+          </button>
+        </Tip>
+        <Tip label="Web templates">
+          <button
+            onClick={() => onDeviceChange("web")}
+            className={cn(
+              "rounded-full p-1.5",
+              device === "web" ? "bg-primary text-primary-foreground" : "text-muted-foreground",
+            )}
+            aria-label="Web templates"
+          >
+            <Monitor className="h-4 w-4" />
+          </button>
+        </Tip>
       </div>
     </div>
   );

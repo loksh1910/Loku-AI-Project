@@ -1,6 +1,7 @@
 "use client";
 
 import type { ComponentType } from "react";
+import { Tip } from "@/components/ui/tip";
 import { cn } from "@/lib/utils";
 
 export type PillTabItem<T extends string> = {
@@ -25,9 +26,8 @@ export function SegmentedPillBar<T extends string>({
     <div className="flex items-center gap-1.5 rounded-full border border-border/60 bg-card px-1.5 py-1">
       {items.map((item) => {
         const isActive = item.id === active;
-        return (
+        const button = (
           <button
-            key={item.id}
             onClick={() => onChange(item.id)}
             className={cn(
               "flex h-8 items-center justify-center rounded-full text-muted-foreground transition-all duration-200 hover:bg-secondary hover:text-foreground",
@@ -40,6 +40,18 @@ export function SegmentedPillBar<T extends string>({
             <item.icon className="h-3.5 w-3.5" />
             {isActive && <p className="text-xs font-medium">{item.label}</p>}
           </button>
+        );
+        // The active pill already shows its label inline — only the
+        // collapsed, icon-only inactive pills need a hover tooltip. Every
+        // caller of this bar (ModeSwitch, CanvasPipelineBar) sits near the
+        // top of the screen, so the tooltip opens downward — "top" would
+        // render off-screen above the viewport.
+        return isActive ? (
+          <span key={item.id}>{button}</span>
+        ) : (
+          <Tip key={item.id} label={item.label} side="bottom">
+            {button}
+          </Tip>
         );
       })}
     </div>

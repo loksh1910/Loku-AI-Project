@@ -11,6 +11,7 @@ import { ManualScreensPanel } from "@/components/canvas/manual-screens-panel";
 import type { ManualElement, ManualFrame } from "@/components/canvas/manual-types";
 import { PrototypeInteractionBox } from "@/components/canvas/prototype-interaction-box";
 import { newManualInteraction, type ManualInteraction } from "@/components/canvas/manual-prototype-types";
+import { Tip } from "@/components/ui/tip";
 
 const MIN_ZOOM = 0.3;
 const MAX_ZOOM = 2.5;
@@ -27,6 +28,18 @@ type ConnectorDrag = {
   currentX: number;
   currentY: number;
 };
+type DragState = { kind: "frame" | "element"; id: string; startX: number; startY: number; startClientX: number; startClientY: number };
+type ResizeState = {
+  kind: "frame" | "element";
+  id: string;
+  corner: "nw" | "ne" | "sw" | "se";
+  startX: number;
+  startY: number;
+  startW: number;
+  startH: number;
+  startClientX: number;
+  startClientY: number;
+};
 type Box = { x: number; y: number; w: number; h: number };
 
 function frameBoxOf(f: ManualFrame): Box {
@@ -39,17 +52,46 @@ function elementBoxOf(el: ManualElement, frames: ManualFrame[]): Box | null {
   return { x: parent.x + el.x, y: parent.y + el.y, w: el.w, h: el.h };
 }
 
+function resizeBox(r: ResizeState, e: { clientX: number; clientY: number }, zoom: number, minSize: number) {
+  const dx = (e.clientX - r.startClientX) / zoom;
+  const dy = (e.clientY - r.startClientY) / zoom;
+  let x = r.startX;
+  let y = r.startY;
+  let w = r.startW;
+  let h = r.startH;
+  if (r.corner === "se") {
+    w = Math.max(minSize, r.startW + dx);
+    h = Math.max(minSize, r.startH + dy);
+  } else if (r.corner === "sw") {
+    w = Math.max(minSize, r.startW - dx);
+    h = Math.max(minSize, r.startH + dy);
+    x = r.startX + (r.startW - w);
+  } else if (r.corner === "ne") {
+    w = Math.max(minSize, r.startW + dx);
+    h = Math.max(minSize, r.startH - dy);
+    y = r.startY + (r.startH - h);
+  } else {
+    w = Math.max(minSize, r.startW - dx);
+    h = Math.max(minSize, r.startH - dy);
+    x = r.startX + (r.startW - w);
+    y = r.startY + (r.startH - h);
+  }
+  return { x, y, w, h };
+}
+
 // The Design/Prototype (Start from Scratch) entry's own Prototype tab — wires
 // interactions between whatever screens/elements the user drew in Design mode.
-// A parallel to CanvasModeView's Prototype pipeline tab, but built against
-// freeform ManualFrame/ManualElement content instead of the fixed HealthVisor
-// screen set, and against genuinely user-created connections (drag a handle to
-// a target screen) instead of a pre-authored INTERACTION_TEMPLATES table.
+// Screens and elements stay fully draggable/resizable here too (same direct-
+// manipulation model as Design mode, minus its creation tools — the toolbar
+// stays pointer+hand only), so a screen doesn't have to be laid out perfectly
+// before you can start prototyping it.
 export function ManualPrototypeView({
   frames,
   elements,
   interactions,
-  onCommit,
+  onFramesChange,
+  onElementsChange,
+  onCommitInteractions,
   onBeginChange,
   onUndo,
   onRedo,
@@ -61,7 +103,9 @@ export function ManualPrototypeView({
   frames: ManualFrame[];
   elements: ManualElement[];
   interactions: ManualInteraction[];
-  onCommit: (updater: (prev: ManualInteraction[]) => ManualInteraction[]) => void;
+  onFramesChange: (frames: ManualFrame[]) => void;
+  onElementsChange: (elements: ManualElement[]) => void;
+  onCommitInteractions: (updater: (prev: ManualInteraction[]) => ManualInteraction[]) => void;
   onBeginChange: () => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -77,6 +121,12 @@ export function ManualPrototypeView({
   const zoomRef = useRef(zoom);
   const viewportRef = useRef<HTMLDivElement>(null);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  // Separate refs per concern (frame vs element, drag vs resize) rather than
+  // one polymorphic ref each — matches ManualEditView's own drag/resize refs.
+  const frameDragRef = useRef<DragState | null>(null);
+  const elementDragRef = useRef<DragState | null>(null);
+  const frameResizeRef = useRef<ResizeState | null>(null);
+  const elementResizeRef = useRef<ResizeState | null>(null);
 
   const [tool, setTool] = useState<CanvasTool>("pointer");
   const [selection, setSelection] = useState<Selection>(null);
@@ -159,6 +209,54 @@ export function ManualPrototypeView({
     openAutoInteraction(outgoing, elementBoxOf(el, frames));
   }
 
+  function handleFramePointerDown(e: React.PointerEvent, f: ManualFrame) {
+    if (tool === "hand") return;
+    e.stopPropagation();
+    selectFrame(f);
+    onBeginChange();
+    frameDragRef.current = { kind: "frame", id: f.id, startX: f.x, startY: f.y, startClientX: e.clientX, startClientY: e.clientY };
+  }
+
+  function handleElementPointerDown(e: React.PointerEvent, el: ManualElement) {
+    if (tool === "hand") return;
+    e.stopPropagation();
+    selectElement(el);
+    onBeginChange();
+    elementDragRef.current = { kind: "element", id: el.id, startX: el.x, startY: el.y, startClientX: e.clientX, startClientY: e.clientY };
+  }
+
+  function startFrameResize(e: React.PointerEvent, f: ManualFrame, corner: "nw" | "ne" | "sw" | "se") {
+    e.stopPropagation();
+    onBeginChange();
+    frameResizeRef.current = {
+      kind: "frame",
+      id: f.id,
+      corner,
+      startX: f.x,
+      startY: f.y,
+      startW: f.device.width,
+      startH: f.device.height,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+    };
+  }
+
+  function startElementResize(e: React.PointerEvent, el: ManualElement, corner: "nw" | "ne" | "sw" | "se") {
+    e.stopPropagation();
+    onBeginChange();
+    elementResizeRef.current = {
+      kind: "element",
+      id: el.id,
+      corner,
+      startX: el.x,
+      startY: el.y,
+      startW: el.w,
+      startH: el.h,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+    };
+  }
+
   function handleViewportPointerDown(e: React.PointerEvent) {
     if (tool === "hand" || e.button === 1) {
       panStart.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
@@ -177,10 +275,40 @@ export function ManualPrototypeView({
       const rect = viewportRef.current?.getBoundingClientRect();
       setConnectorDrag({ ...connectorDrag, currentX: e.clientX - (rect?.left ?? 0), currentY: e.clientY - (rect?.top ?? 0) });
     }
+    const frameDrag = frameDragRef.current;
+    if (frameDrag) {
+      const dx = (e.clientX - frameDrag.startClientX) / zoom;
+      const dy = (e.clientY - frameDrag.startClientY) / zoom;
+      onFramesChange(frames.map((f) => (f.id === frameDrag.id ? { ...f, x: frameDrag.startX + dx, y: frameDrag.startY + dy } : f)));
+    }
+    const elementDrag = elementDragRef.current;
+    if (elementDrag) {
+      const dx = (e.clientX - elementDrag.startClientX) / zoom;
+      const dy = (e.clientY - elementDrag.startClientY) / zoom;
+      onElementsChange(
+        elements.map((el) => (el.id === elementDrag.id ? { ...el, x: elementDrag.startX + dx, y: elementDrag.startY + dy } : el)),
+      );
+    }
+    const frameResize = frameResizeRef.current;
+    if (frameResize) {
+      const { x, y, w, h } = resizeBox(frameResize, e, zoom, 60);
+      onFramesChange(
+        frames.map((f) => (f.id === frameResize.id ? { ...f, x, y, device: { ...f.device, width: w, height: h } } : f)),
+      );
+    }
+    const elementResize = elementResizeRef.current;
+    if (elementResize) {
+      const { x, y, w, h } = resizeBox(elementResize, e, zoom, 8);
+      onElementsChange(elements.map((el) => (el.id === elementResize.id ? { ...el, x, y, w, h } : el)));
+    }
   }
 
   function handleViewportPointerUp(e: React.PointerEvent) {
     panStart.current = null;
+    frameDragRef.current = null;
+    elementDragRef.current = null;
+    frameResizeRef.current = null;
+    elementResizeRef.current = null;
     if (connectorDrag) {
       const dropTarget = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest(
         "[data-frame-id]",
@@ -194,7 +322,7 @@ export function ManualPrototypeView({
           connectorDrag.fromType,
           targetFrameId,
         );
-        onCommit((prev) => [...prev, wire]);
+        onCommitInteractions((prev) => [...prev, wire]);
         setActiveInteraction({ id: wire.id, x: connectorDrag.currentX + 16, y: connectorDrag.currentY });
       }
       setConnectorDrag(null);
@@ -204,7 +332,6 @@ export function ManualPrototypeView({
   function startConnectorDrag(e: React.PointerEvent) {
     if (!selection) return;
     e.stopPropagation();
-    onBeginChange();
     const sourceFrameId = selectedFrame ? selectedFrame.id : selectedElement!.frameId;
     const sourceLabel = selectedFrame ? selectedFrame.name : selectedElement!.name;
     const rect = viewportRef.current?.getBoundingClientRect();
@@ -220,6 +347,11 @@ export function ManualPrototypeView({
       currentX: vx,
       currentY: vy,
     });
+  }
+
+  function deleteInteraction(id: string) {
+    onCommitInteractions((prev) => prev.filter((it) => it.id !== id));
+    setActiveInteraction(null);
   }
 
   const selectedFrame = selection?.kind === "frame" ? (frames.find((f) => f.id === selection.id) ?? null) : null;
@@ -238,57 +370,68 @@ export function ManualPrototypeView({
         onPointerLeave={handleViewportPointerUp}
       >
         <div className="absolute top-1/2 left-1/2" style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}>
-          {frames.map((f) => (
-            <div
-              key={f.id}
-              data-frame-id={f.id}
-              onPointerDown={(e) => {
-                if (tool === "hand") return;
-                e.stopPropagation();
-                selectFrame(f);
-              }}
-              className={cn(
-                "absolute touch-none",
-                selection?.kind === "frame" && selection.id === f.id ? "ring-2 ring-primary" : "border border-border/40",
-              )}
-              style={{
-                left: f.x * zoom,
-                top: f.y * zoom,
-                width: f.device.width * zoom,
-                height: f.device.height * zoom,
-                background: f.fill,
-                borderRadius: f.cornerRadius * zoom,
-              }}
-            />
-          ))}
+          {frames.map((f) => {
+            const isSelected = selection?.kind === "frame" && selection.id === f.id;
+            const w = f.device.width * zoom;
+            const h = f.device.height * zoom;
+            return (
+              <div key={f.id} className="absolute" style={{ left: f.x * zoom, top: f.y * zoom, width: w, height: h }}>
+                <div
+                  data-frame-id={f.id}
+                  onPointerDown={(e) => handleFramePointerDown(e, f)}
+                  className={cn("absolute inset-0 touch-none", isSelected ? "ring-2 ring-primary" : "border border-border/40")}
+                  style={{ background: f.fill, borderRadius: f.cornerRadius * zoom }}
+                />
+                {isSelected && tool !== "hand" && (
+                  <>
+                    {(["nw", "ne", "sw", "se"] as const).map((corner) => (
+                      <div
+                        key={corner}
+                        onPointerDown={(e) => startFrameResize(e, f, corner)}
+                        className="absolute rounded-sm border border-primary bg-background"
+                        style={{
+                          width: 9,
+                          height: 9,
+                          cursor: `${corner}-resize`,
+                          left: corner.includes("w") ? -4.5 : undefined,
+                          right: corner.includes("e") ? -4.5 : undefined,
+                          top: corner.includes("n") ? -4.5 : undefined,
+                          bottom: corner.includes("s") ? -4.5 : undefined,
+                        }}
+                      />
+                    ))}
+                  </>
+                )}
+              </div>
+            );
+          })}
 
-          {elements.map((el) => (
-            <ManualElementView
-              key={el.id}
-              el={el}
-              zoom={zoom}
-              originX={frames.find((f) => f.id === el.frameId)?.x ?? 0}
-              originY={frames.find((f) => f.id === el.frameId)?.y ?? 0}
-              selected={false}
-              editing={false}
-              dataFrameId={el.frameId}
-              onPointerDownDrag={(e) => {
-                if (tool === "hand") return;
-                e.stopPropagation();
-                selectElement(el);
-              }}
-              onStartResize={() => {}}
-              onDoubleClickText={() => {}}
-              onCommitText={() => {}}
-            />
-          ))}
+          {elements.map((el) => {
+            const parent = frames.find((f) => f.id === el.frameId);
+            const isSelected = selection?.kind === "element" && selection.id === el.id;
+            return (
+              <ManualElementView
+                key={el.id}
+                el={el}
+                zoom={zoom}
+                originX={parent?.x ?? 0}
+                originY={parent?.y ?? 0}
+                selected={isSelected && tool !== "hand"}
+                editing={false}
+                dataFrameId={el.frameId}
+                onPointerDownDrag={(e) => handleElementPointerDown(e, el)}
+                onStartResize={(e, corner) => startElementResize(e, el, corner)}
+                onDoubleClickText={() => {}}
+                onCommitText={() => {}}
+              />
+            );
+          })}
 
           {selectedBox && tool !== "hand" && (
             <div
-              className="absolute"
+              className="pointer-events-none absolute"
               style={{ left: selectedBox.x * zoom, top: selectedBox.y * zoom, width: selectedBox.w * zoom, height: selectedBox.h * zoom }}
             >
-              <div className="pointer-events-none absolute inset-0 rounded-sm ring-2 ring-primary" />
               <ConnectHandle dir="top" onPointerDown={startConnectorDrag} />
               <ConnectHandle dir="right" onPointerDown={startConnectorDrag} />
               <ConnectHandle dir="bottom" onPointerDown={startConnectorDrag} />
@@ -388,20 +531,23 @@ export function ManualPrototypeView({
           y={activeInteraction.y}
           initialMode="manual"
           onChange={(patch) =>
-            onCommit((prev) => prev.map((it) => (it.id === activeInteractionData.id ? { ...it, ...patch } : it)))
+            onCommitInteractions((prev) => prev.map((it) => (it.id === activeInteractionData.id ? { ...it, ...patch } : it)))
           }
           onTargetChange={(id) =>
-            onCommit((prev) => prev.map((it) => (it.id === activeInteractionData.id ? { ...it, targetFrameId: id } : it)))
+            onCommitInteractions((prev) => prev.map((it) => (it.id === activeInteractionData.id ? { ...it, targetFrameId: id } : it)))
           }
           onClose={() => setActiveInteraction(null)}
+          onDelete={() => deleteInteraction(activeInteractionData.id)}
         />
       )}
 
       <div className="absolute right-4 bottom-4 z-30 flex items-center gap-2 text-muted-foreground">
         <span className="rounded-full border border-border/60 bg-card px-2.5 py-1 text-xs">{zoomPct}%</span>
-        <button className="rounded-full border border-border/60 bg-card p-1.5 hover:text-foreground" aria-label="Help">
-          <HelpCircle className="h-3.5 w-3.5" />
-        </button>
+        <Tip label="Help">
+          <button className="rounded-full border border-border/60 bg-card p-1.5 hover:text-foreground" aria-label="Help">
+            <HelpCircle className="h-3.5 w-3.5" />
+          </button>
+        </Tip>
       </div>
     </div>
   );
@@ -418,7 +564,7 @@ function ConnectHandle({ dir, onPointerDown }: { dir: "top" | "right" | "bottom"
     <button
       onPointerDown={onPointerDown}
       className={cn(
-        "absolute z-30 flex h-5 w-5 cursor-crosshair items-center justify-center rounded-full border border-primary bg-popover text-primary hover:bg-primary/10",
+        "pointer-events-auto absolute z-30 flex h-5 w-5 cursor-crosshair items-center justify-center rounded-full border border-primary bg-popover text-primary hover:bg-primary/10",
         posClass,
       )}
       aria-label={`Connect from ${dir}`}

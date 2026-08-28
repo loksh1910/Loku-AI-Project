@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, ChevronDown, Pencil, Smartphone, Sparkles, X } from "lucide-react";
+import { ArrowRight, ChevronDown, Pencil, Smartphone, Sparkles, Trash2, X } from "lucide-react";
+import { ModelDropdown } from "@/components/ai/model-dropdown";
+import { Tip } from "@/components/ui/tip";
 
 const TRIGGERS = ["On Click", "On Hover", "After Delay", "All Actions"];
 const ACTIONS = ["Navigate to", "Open Overlay", "Scroll to"];
@@ -42,6 +44,7 @@ export function PrototypeInteractionBox<T extends InteractionCoreFields>({
   onChange,
   onTargetChange,
   onClose,
+  onDelete,
 }: {
   interaction: T;
   /** Resolved display name of the interaction's current target. */
@@ -56,6 +59,10 @@ export function PrototypeInteractionBox<T extends InteractionCoreFields>({
   onChange: (patch: Partial<InteractionEditableFields>) => void;
   onTargetChange: (id: string) => void;
   onClose: () => void;
+  /** Removes the interaction entirely — omit to leave the box delete-less
+   * (the original HealthVisor Prototype flow's wires are template-derived,
+   * not something a user builds by hand, so it doesn't pass this). */
+  onDelete?: () => void;
 }) {
   const [mode, setMode] = useState<"ai" | "manual">(initialMode);
   const [prompt, setPrompt] = useState("");
@@ -90,9 +97,20 @@ export function PrototypeInteractionBox<T extends InteractionCoreFields>({
           <span className="h-1.5 w-1.5 rounded-full bg-primary" />
           Interaction
         </div>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Close">
-          <X className="h-3.5 w-3.5" />
-        </button>
+        <div className="flex items-center gap-2">
+          {onDelete && (
+            <Tip label="Delete interaction">
+              <button onClick={onDelete} className="text-muted-foreground hover:text-destructive" aria-label="Delete interaction">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </Tip>
+          )}
+          <Tip label="Close">
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Close">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </Tip>
+        </div>
       </div>
 
       <div className="mb-3 flex items-center gap-1.5 rounded-lg border border-dashed border-border/60 px-2 py-1.5 text-[11px]">
@@ -146,13 +164,16 @@ export function PrototypeInteractionBox<T extends InteractionCoreFields>({
               rows={2}
               className="w-full resize-none bg-transparent text-xs outline-none placeholder:text-muted-foreground"
             />
-            <div className="flex justify-end">
-              <button
-                aria-label="Submit"
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF] text-white"
-              >
-                <ArrowRight className="h-3.5 w-3.5" />
-              </button>
+            <div className="flex items-center justify-end gap-1.5">
+              <ModelDropdown className="px-2 py-1 text-[10px]" />
+              <Tip label="Submit">
+                <button
+                  aria-label="Submit"
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF] text-white"
+                >
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </Tip>
             </div>
           </div>
           <div className="mb-3 flex flex-wrap gap-1.5">
@@ -193,7 +214,7 @@ export function PrototypeInteractionBox<T extends InteractionCoreFields>({
               className="flex items-center gap-1.5 rounded-full border border-primary px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              Back to AI edit
+              Edit with AI
             </button>
           </div>
         </>

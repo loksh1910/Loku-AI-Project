@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Component, Layers2, SquareDashedMousePointer, ArrowDownToLine } from "lucide-react";
+import { Tip } from "@/components/ui/tip";
 import { cn } from "@/lib/utils";
 
 const BOOLEAN_OPS = [
@@ -61,16 +62,18 @@ export function ManualTopTools({
   return (
     <div ref={rootRef} className="flex items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
       <div className="relative">
-        <button
-          onClick={() => setOpen(open === "components" ? null : "components")}
-          className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
-            open === "components" && "bg-primary/15 text-primary",
-          )}
-          aria-label="Components"
-        >
-          <Component className="h-3.5 w-3.5" />
-        </button>
+        <Tip label="Components" side="bottom">
+          <button
+            onClick={() => setOpen(open === "components" ? null : "components")}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
+              open === "components" && "bg-primary/15 text-primary",
+            )}
+            aria-label="Components"
+          >
+            <Component className="h-3.5 w-3.5" />
+          </button>
+        </Tip>
         {open === "components" && (
           <div className="absolute top-full right-0 z-10 mt-2 w-[170px] rounded-2xl border border-border/60 bg-popover p-1.5 shadow-2xl">
             <button
@@ -95,28 +98,32 @@ export function ManualTopTools({
         )}
       </div>
 
-      <button
-        onClick={onToggleMask}
-        className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
-          masked && "bg-primary/15 text-primary",
-        )}
-        aria-label="Mask"
-      >
-        <SquareDashedMousePointer className="h-3.5 w-3.5" />
-      </button>
-
-      <div className="relative">
+      <Tip label="Mask" side="bottom">
         <button
-          onClick={() => setOpen(open === "boolean" ? null : "boolean")}
+          onClick={onToggleMask}
           className={cn(
             "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
-            open === "boolean" && "bg-primary/15 text-primary",
+            masked && "bg-primary/15 text-primary",
           )}
-          aria-label="Boolean operations"
+          aria-label="Mask"
         >
-          <Layers2 className="h-3.5 w-3.5" />
+          <SquareDashedMousePointer className="h-3.5 w-3.5" />
         </button>
+      </Tip>
+
+      <div className="relative">
+        <Tip label="Boolean operations" side="bottom">
+          <button
+            onClick={() => setOpen(open === "boolean" ? null : "boolean")}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
+              open === "boolean" && "bg-primary/15 text-primary",
+            )}
+            aria-label="Boolean operations"
+          >
+            <Layers2 className="h-3.5 w-3.5" />
+          </button>
+        </Tip>
         {open === "boolean" && (
           <div className="absolute top-full right-0 z-10 mt-2 w-[160px] rounded-2xl border border-border/60 bg-popover p-1.5 shadow-2xl">
             {BOOLEAN_OPS.map((op) => (

@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, ChevronRight, Circle, Sparkles, X } from "lucide-react";
+import { Tip } from "@/components/ui/tip";
 
 const CHECKLIST = [
   { label: "Understanding requirements", done: true },
@@ -19,9 +20,11 @@ export function AiAssistantOverlay({ prompt, onClose }: { prompt: string; onClos
           <p className="text-xs font-medium text-white">AI Assistant</p>
         </div>
         {onClose && (
-          <button onClick={onClose} aria-label="Close" className="text-white/60 hover:text-white">
-            <X className="h-4 w-4" />
-          </button>
+          <Tip label="Close">
+            <button onClick={onClose} aria-label="Close" className="text-white/60 hover:text-white">
+              <X className="h-4 w-4" />
+            </button>
+          </Tip>
         )}
       </div>
       <div className="flex-1 space-y-3 overflow-y-auto px-4 pb-3">

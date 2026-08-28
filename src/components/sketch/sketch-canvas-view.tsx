@@ -11,6 +11,7 @@ import type {
   SketchFrame,
 } from "@/components/sketch/sketch-types";
 import { FRAME_SCALE } from "@/components/sketch/sketch-constants";
+import { Tip } from "@/components/ui/tip";
 import { cn } from "@/lib/utils";
 
 const MIN_ZOOM = 0.3;
@@ -362,22 +363,24 @@ export function SketchCanvasView({
                 </p>
               )}
 
-              <button
-                onClick={() => onAddAdjacentFrame(frame.id)}
-                className="absolute -left-7 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-primary/60 bg-popover text-primary hover:bg-primary/10"
-                style={{ top: h / 2 + 12 }}
-                aria-label="Add adjacent screen"
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => onAddAdjacentFrame(frame.id)}
-                className="absolute -right-7 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-primary/60 bg-popover text-primary hover:bg-primary/10"
-                style={{ top: h / 2 + 12 }}
-                aria-label="Add adjacent screen"
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
+              <Tip label="Add adjacent screen" className="absolute -left-7 -translate-y-1/2" style={{ top: h / 2 + 12 }}>
+                <button
+                  onClick={() => onAddAdjacentFrame(frame.id)}
+                  className="flex h-6 w-6 items-center justify-center rounded-full border border-primary/60 bg-popover text-primary hover:bg-primary/10"
+                  aria-label="Add adjacent screen"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </Tip>
+              <Tip label="Add adjacent screen" className="absolute -right-7 -translate-y-1/2" style={{ top: h / 2 + 12 }}>
+                <button
+                  onClick={() => onAddAdjacentFrame(frame.id)}
+                  className="flex h-6 w-6 items-center justify-center rounded-full border border-primary/60 bg-popover text-primary hover:bg-primary/10"
+                  aria-label="Add adjacent screen"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </Tip>
 
               <div
                 onPointerDown={(e) => handleFramePointerDown(e, frame)}

@@ -38,6 +38,8 @@ import {
 import { SHARED_FILES, generateScreenCode, type CodeLine } from "@/components/canvas/code-generators";
 import { HighlightedLine } from "@/components/canvas/code-highlight";
 import { BOX_MODEL_BY_TYPE, getComputedStyleByType, ScreenPreview, findNode } from "@/components/canvas/code-screen-preview";
+import { ModelDropdown } from "@/components/ai/model-dropdown";
+import { Tip } from "@/components/ui/tip";
 
 const VARIATION_IDS: VariationId[] = ["bold", "playful", "minimal"];
 
@@ -293,60 +295,72 @@ export function CodeModeView() {
           </div>
 
           <div className="flex items-center gap-1 rounded-full border border-border/60 bg-secondary/40 p-1">
-            <button
-              onClick={() => setDeviceMode("mobile")}
-              aria-label="Mobile preview"
-              className={cn("flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground", deviceMode === "mobile" && "bg-primary/15 text-primary")}
-            >
-              <Smartphone className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => setDeviceMode("web")}
-              aria-label="Desktop preview"
-              className={cn("flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground", deviceMode === "web" && "bg-primary/15 text-primary")}
-            >
-              <Monitor className="h-3.5 w-3.5" />
-            </button>
+            <Tip label="Mobile preview" side="bottom">
+              <button
+                onClick={() => setDeviceMode("mobile")}
+                aria-label="Mobile preview"
+                className={cn("flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground", deviceMode === "mobile" && "bg-primary/15 text-primary")}
+              >
+                <Smartphone className="h-3.5 w-3.5" />
+              </button>
+            </Tip>
+            <Tip label="Desktop preview" side="bottom">
+              <button
+                onClick={() => setDeviceMode("web")}
+                aria-label="Desktop preview"
+                className={cn("flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground", deviceMode === "web" && "bg-primary/15 text-primary")}
+              >
+                <Monitor className="h-3.5 w-3.5" />
+              </button>
+            </Tip>
           </div>
 
           <div className="flex items-center gap-1 rounded-full border border-border/60 bg-secondary/40 p-1">
-            <button
-              onClick={() => setPickerActive(false)}
-              aria-label="Pointer"
-              className={cn("flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground", !pickerActive && "bg-primary/15 text-primary")}
-            >
-              <MousePointer2 className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => setPickerActive(true)}
-              aria-label="Select element"
-              className={cn("flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground", pickerActive && "bg-primary/15 text-primary")}
-            >
-              <BoxSelect className="h-3.5 w-3.5" />
-            </button>
+            <Tip label="Pointer" side="bottom">
+              <button
+                onClick={() => setPickerActive(false)}
+                aria-label="Pointer"
+                className={cn("flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground", !pickerActive && "bg-primary/15 text-primary")}
+              >
+                <MousePointer2 className="h-3.5 w-3.5" />
+              </button>
+            </Tip>
+            <Tip label="Select element" side="bottom">
+              <button
+                onClick={() => setPickerActive(true)}
+                aria-label="Select element"
+                className={cn("flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground", pickerActive && "bg-primary/15 text-primary")}
+              >
+                <BoxSelect className="h-3.5 w-3.5" />
+              </button>
+            </Tip>
           </div>
         </div>
 
         <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-[#0c0c0e] p-6">
-          <button
-            onClick={() => stepScreen(-1)}
-            aria-label="Previous screen"
-            className="absolute left-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-card text-muted-foreground hover:text-foreground"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
+          <Tip label="Previous screen" className="absolute left-4 z-10">
+            <button
+              onClick={() => stepScreen(-1)}
+              aria-label="Previous screen"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-muted-foreground hover:text-foreground"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          </Tip>
 
           <DeviceFrame mode={deviceMode}>
             <ScreenPreview spec={SCREEN_SPECS[activeScreen]} theme={theme} selectMode={pickerActive} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />
           </DeviceFrame>
 
-          <button
-            onClick={() => stepScreen(1)}
-            aria-label="Next screen"
-            className="absolute right-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-card text-muted-foreground hover:text-foreground"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
+          <Tip label="Next screen" className="absolute right-4 z-10">
+            <button
+              onClick={() => stepScreen(1)}
+              aria-label="Next screen"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-muted-foreground hover:text-foreground"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </Tip>
         </div>
 
         <div className="border-t border-border/60 p-3">
@@ -357,17 +371,20 @@ export function CodeModeView() {
               placeholder="Describe the change you want to make…"
               className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
             />
-            <button
-              onClick={() => {
-                if (!prompt.trim()) return;
-                toast("AI code edits are coming soon.");
-                setPrompt("");
-              }}
-              aria-label="Submit"
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF] text-white"
-            >
-              <ArrowUp className="h-3.5 w-3.5" />
-            </button>
+            <ModelDropdown className="px-2 py-1 text-[11px]" />
+            <Tip label="Submit">
+              <button
+                onClick={() => {
+                  if (!prompt.trim()) return;
+                  toast("AI code edits are coming soon.");
+                  setPrompt("");
+                }}
+                aria-label="Submit"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF] text-white"
+              >
+                <ArrowUp className="h-3.5 w-3.5" />
+              </button>
+            </Tip>
           </div>
         </div>
       </div>
@@ -380,12 +397,16 @@ export function CodeModeView() {
         className="group relative z-10 w-1 shrink-0 cursor-col-resize bg-border/60 hover:bg-primary/50"
       >
         <div className="absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col gap-1 rounded-full border border-border/60 bg-card p-1 opacity-0 group-hover:opacity-100">
-          <button onClick={() => setLeftPct(70)} aria-label="Expand left panel" className="rounded p-0.5 text-muted-foreground hover:text-foreground">
-            <ChevronLeft className="h-3 w-3 rotate-180" />
-          </button>
-          <button onClick={() => setLeftPct(22)} aria-label="Expand right panel" className="rounded p-0.5 text-muted-foreground hover:text-foreground">
-            <ChevronRight className="h-3 w-3 rotate-180" />
-          </button>
+          <Tip label="Expand left panel" side="left">
+            <button onClick={() => setLeftPct(70)} aria-label="Expand left panel" className="rounded p-0.5 text-muted-foreground hover:text-foreground">
+              <ChevronLeft className="h-3 w-3 rotate-180" />
+            </button>
+          </Tip>
+          <Tip label="Expand right panel" side="right">
+            <button onClick={() => setLeftPct(22)} aria-label="Expand right panel" className="rounded p-0.5 text-muted-foreground hover:text-foreground">
+              <ChevronRight className="h-3 w-3 rotate-180" />
+            </button>
+          </Tip>
         </div>
       </div>
 

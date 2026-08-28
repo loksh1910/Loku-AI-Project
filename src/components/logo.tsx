@@ -5,11 +5,15 @@ export function LogoMark({ className }: { className?: string }) {
   return (
     <div className={cn("relative", className)}>
       <Image
-        src="/images/logo-mark.png"
+        // The original export has a huge transparent margin baked in (the "L"
+        // glyph occupies well under half the canvas), which made the mark look
+        // tiny at any container size — this is the same asset, tightly cropped
+        // to the glyph's real bounding box (plus a small margin) via sharp.
+        src="/images/logo-mark-tight.png"
         alt="Loku"
         fill
         className="object-contain"
-        sizes="40px"
+        sizes="48px"
         priority
       />
     </div>

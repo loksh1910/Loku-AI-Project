@@ -117,24 +117,29 @@ export default function LandingPage() {
       <main className="mx-auto w-full max-w-[1320px] flex-1 px-[60px]">
         {/* Hero */}
         <section className="relative pt-10 text-center sm:pt-14">
-          <MockupGlow className="pointer-events-none absolute top-0 left-0 hidden w-40 -translate-y-4 opacity-90 sm:block" />
-          <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-            From idea to interface –{" "}
-            <span className="bg-gradient-to-r from-[#8E51FF] to-[#3B82F6] bg-clip-text text-transparent">
-              Instantly
-            </span>
-          </h1>
-          <p className="mx-auto mt-3 max-w-lg text-sm text-muted-foreground">
-            Plan UI, generate wireframes, build design systems, and create full
-            UI — all in one place with AI.
-          </p>
+          {/* Sits behind the heading (z-0, painted before the z-10 text block
+              below) and low-opacity, bleeding into "interface" on the second
+              line rather than floating up near the header/logo. */}
+          <MockupGlow className="pointer-events-none absolute top-14 left-0 z-0 hidden w-48 opacity-25 sm:block lg:top-20 lg:left-8 lg:w-56" />
+          <div className="relative z-10">
+            <h1 className="text-5xl leading-[1.05] font-medium tracking-tight sm:text-6xl lg:text-[90px]">
+              From idea to interface –{" "}
+              <span className="bg-gradient-to-r from-[#6a41f3] to-[#3e268d] bg-clip-text text-transparent">
+                Instantly
+              </span>
+            </h1>
+            <p className="mx-auto mt-3 max-w-lg text-base text-muted-foreground">
+              Plan UI, generate wireframes, build design systems, and create full
+              UI — all in one place with AI.
+            </p>
 
-          <AiPromptBar
-            value={prompt}
-            onChange={setPrompt}
-            onSubmit={handleStart}
-            className="mx-auto mt-6 max-w-xl"
-          />
+            <AiPromptBar
+              value={prompt}
+              onChange={setPrompt}
+              onSubmit={handleStart}
+              className="mx-auto mt-12 max-w-2xl"
+            />
+          </div>
         </section>
 
         {/* Explore Templates */}

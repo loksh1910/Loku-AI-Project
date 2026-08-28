@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Bookmark, BookmarkCheck, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { toast } from "sonner";
 import type { Template } from "@/lib/templates-data";
 import { TemplateThumbnail } from "@/components/templates/template-thumbnail";
 import { useAppState } from "@/components/providers/app-state-provider";
+import { Tip } from "@/components/ui/tip";
 import { cn } from "@/lib/utils";
 
 export function TemplateDetailDialog({
@@ -20,7 +21,7 @@ export function TemplateDetailDialog({
 }) {
   const [screenIndex, setScreenIndex] = useState(0);
   const router = useRouter();
-  const { isSignedIn, openAuth } = useAppState();
+  const { isSignedIn, openAuth, isTemplateSaved, toggleSavedTemplate } = useAppState();
 
   if (!template) return null;
   const isMobile = template.device === "mobile";
@@ -46,27 +47,55 @@ export function TemplateDetailDialog({
               {template.about.split(".")[0]}.
             </p>
           </div>
-          <Button
-            className="shrink-0 rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF] text-white hover:opacity-90"
-            onClick={() => {
-              if (template.slug === "healthvisor-app") {
-                // The one template with a real app behind it — skip straight
-                // to Present Mode with it already "generated", same as
-                // finishing the Sketch-to-UI flow, just without sketching.
-                onOpenChange(false);
-                if (!isSignedIn) {
-                  openAuth("signin");
+          <div className="flex shrink-0 items-center gap-2">
+            <Tip label={isTemplateSaved(template.slug) ? "Remove from Saved" : "Save template"}>
+              <button
+                onClick={() => {
+                  if (!isSignedIn) {
+                    openAuth("signin");
+                    return;
+                  }
+                  const wasSaved = isTemplateSaved(template.slug);
+                  toggleSavedTemplate(template.slug);
+                  toast(wasSaved ? "Removed from Saved." : "Saved — find it in the Saved page.");
+                }}
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-full border",
+                  isTemplateSaved(template.slug)
+                    ? "border-primary/50 bg-primary/15 text-primary"
+                    : "border-border/60 text-muted-foreground hover:text-foreground",
+                )}
+                aria-label={isTemplateSaved(template.slug) ? "Remove from Saved" : "Save template"}
+              >
+                {isTemplateSaved(template.slug) ? (
+                  <BookmarkCheck className="h-4 w-4" fill="currentColor" fillOpacity={0.15} />
+                ) : (
+                  <Bookmark className="h-4 w-4" />
+                )}
+              </button>
+            </Tip>
+            <Button
+              className="rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF] text-white hover:opacity-90"
+              onClick={() => {
+                if (template.slug === "healthvisor-app") {
+                  // The one template with a real app behind it — skip straight
+                  // to Present Mode with it already "generated", same as
+                  // finishing the Sketch-to-UI flow, just without sketching.
+                  onOpenChange(false);
+                  if (!isSignedIn) {
+                    openAuth("signin");
+                    return;
+                  }
+                  router.push("/sketch/canvas?entry=template");
                   return;
                 }
-                router.push("/sketch/canvas?entry=template");
-                return;
-              }
-              toast.success(`"${template.title}" is ready to use (mock).`);
-              onOpenChange(false);
-            }}
-          >
-            Use Template
-          </Button>
+                toast.success(`"${template.title}" is ready to use (mock).`);
+                onOpenChange(false);
+              }}
+            >
+              Use Template
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-8 px-8 py-6 sm:grid-cols-[1fr_1fr]">
@@ -76,16 +105,18 @@ export function TemplateDetailDialog({
             </div>
 
             <div className="flex items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() =>
-                  setScreenIndex((i) => (i - 1 + template.screens) % template.screens)
-                }
-                className="rounded-full border border-border/60 p-1.5 text-muted-foreground hover:text-foreground"
-                aria-label="Previous screen"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
+              <Tip label="Previous screen">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setScreenIndex((i) => (i - 1 + template.screens) % template.screens)
+                  }
+                  className="rounded-full border border-border/60 p-1.5 text-muted-foreground hover:text-foreground"
+                  aria-label="Previous screen"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+              </Tip>
 
               <div
                 className={cn(
@@ -97,24 +128,28 @@ export function TemplateDetailDialog({
                 <div className="absolute inset-x-0 bottom-0 bg-black/40 px-3 py-1.5 text-center text-xs font-medium text-white backdrop-blur-sm">
                   Screen {screenIndex + 1} of {template.screens}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => toast("Downloaded preview (mock).")}
-                  className="absolute top-2 right-2 rounded-md bg-black/30 p-1.5 text-white"
-                  aria-label="Download"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                </button>
+                <Tip label="Download" className="absolute top-2 right-2">
+                  <button
+                    type="button"
+                    onClick={() => toast("Downloaded preview (mock).")}
+                    className="rounded-md bg-black/30 p-1.5 text-white"
+                    aria-label="Download"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </button>
+                </Tip>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setScreenIndex((i) => (i + 1) % template.screens)}
-                className="rounded-full border border-border/60 p-1.5 text-muted-foreground hover:text-foreground"
-                aria-label="Next screen"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+              <Tip label="Next screen">
+                <button
+                  type="button"
+                  onClick={() => setScreenIndex((i) => (i + 1) % template.screens)}
+                  className="rounded-full border border-border/60 p-1.5 text-muted-foreground hover:text-foreground"
+                  aria-label="Next screen"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </Tip>
             </div>
 
             <div className="mt-3 flex justify-center gap-1.5">

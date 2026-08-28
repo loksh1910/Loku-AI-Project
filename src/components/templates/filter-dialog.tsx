@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { FILTER_GROUPS, type FilterCategoryKey } from "@/lib/filters-data";
 import { StylePreview, ComplexityPreview } from "@/components/templates/filter-illustrations";
+import { Tip } from "@/components/ui/tip";
 import { cn } from "@/lib/utils";
 
 export function FilterDialog({
@@ -62,13 +63,15 @@ export function FilterDialog({
             <ListFilter className="h-4 w-4 text-primary" />
             Filters
           </DialogTitle>
-          <button
-            onClick={() => onOpenChange(false)}
-            className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <Tip label="Close">
+            <button
+              onClick={() => onOpenChange(false)}
+              className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </Tip>
         </div>
 
         <div className="flex min-h-0 flex-1">

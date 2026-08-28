@@ -24,6 +24,7 @@ import {
   type TextAlign,
 } from "@/components/canvas/flow-types";
 import { ShapePickerGrid } from "@/components/canvas/flow-shape-picker";
+import { Tip } from "@/components/ui/tip";
 
 const STROKE_STYLES: StrokeStyle[] = ["solid", "dashed", "dotted"];
 const STROKE_WIDTHS = [1, 1.5, 2, 3, 4];
@@ -299,9 +300,14 @@ export function FlowEditToolbar({
               placeholder="Describe the change you want to make..."
               className="w-full bg-transparent text-xs text-white/80 outline-none placeholder:text-white/50"
             />
-            <button className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF] text-white">
-              <ArrowRight className="h-3.5 w-3.5" />
-            </button>
+            <Tip label="Submit">
+              <button
+                aria-label="Submit"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF] text-white"
+              >
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            </Tip>
           </div>
         </div>
       )}
@@ -321,16 +327,18 @@ function IconButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      className={cn(
-        "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
-        active && "bg-primary/15 text-primary",
-      )}
-    >
-      {children}
-    </button>
+    <Tip label={label}>
+      <button
+        onClick={onClick}
+        aria-label={label}
+        className={cn(
+          "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
+          active && "bg-primary/15 text-primary",
+        )}
+      >
+        {children}
+      </button>
+    </Tip>
   );
 }
 

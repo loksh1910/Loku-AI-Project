@@ -9,6 +9,7 @@ import {
   type SketchDeviceCategory,
 } from "@/lib/sketch-devices";
 import type { SketchFrame } from "@/components/sketch/sketch-types";
+import { Tip } from "@/components/ui/tip";
 
 type View = "empty" | "categories" | "devices" | "list";
 
@@ -49,9 +50,11 @@ export function ScreensPanel({
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold">Screens</h3>
             <div className="flex items-center gap-1 text-muted-foreground">
-              <button onClick={() => setView("categories")} aria-label="Add screen">
-                <Plus className="h-4 w-4" />
-              </button>
+              <Tip label="Add screen">
+                <button onClick={() => setView("categories")} aria-label="Add screen">
+                  <Plus className="h-4 w-4" />
+                </button>
+              </Tip>
               <Search className="h-4 w-4" />
             </div>
           </div>
@@ -167,9 +170,11 @@ export function ScreensPanel({
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold">Screens</h3>
             <div className="flex items-center gap-1 text-muted-foreground">
-              <button onClick={() => setView("categories")} aria-label="Add screen">
-                <Plus className="h-4 w-4" />
-              </button>
+              <Tip label="Add screen">
+                <button onClick={() => setView("categories")} aria-label="Add screen">
+                  <Plus className="h-4 w-4" />
+                </button>
+              </Tip>
               <Search className="h-4 w-4" />
             </div>
           </div>

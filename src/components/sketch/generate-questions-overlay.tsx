@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Link2, Sparkles, Upload, X } from "lucide-react";
+import { Tip } from "@/components/ui/tip";
 import { cn } from "@/lib/utils";
 
 type IllustrationQuadrant = "q1" | "q2" | "q3" | "q4";
@@ -190,17 +191,17 @@ export function GenerateQuestionsOverlay({
       <p className="mb-5 text-center text-xs text-white/80">I&rsquo;ll ask you a few quick questions to get started.</p>
 
       {stepIndex > 0 ? (
-        <button
-          onClick={goBack}
-          aria-label="Back"
-          className="absolute top-6 left-6 text-white/60 hover:text-white"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
+        <Tip label="Back" className="absolute top-6 left-6">
+          <button onClick={goBack} aria-label="Back" className="text-white/60 hover:text-white">
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        </Tip>
       ) : null}
-      <button onClick={onClose} aria-label="Close" className="absolute top-6 right-6 text-white/60 hover:text-white">
-        <X className="h-5 w-5" />
-      </button>
+      <Tip label="Close" className="absolute top-6 right-6">
+        <button onClick={onClose} aria-label="Close" className="text-white/60 hover:text-white">
+          <X className="h-5 w-5" />
+        </button>
+      </Tip>
       <p className="absolute top-7 right-14 text-[10px] text-white/40">
         {stepIndex + 1}/{STEPS.length}
       </p>

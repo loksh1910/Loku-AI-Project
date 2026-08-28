@@ -19,6 +19,7 @@ import { ShowAllFlowToggle } from "@/components/canvas/show-all-flow-toggle";
 import { PrototypePromptBar } from "@/components/canvas/prototype-prompt-bar";
 import { PrototypeInteractionBox } from "@/components/canvas/prototype-interaction-box";
 import { INTERACTION_TEMPLATES, type ApplyOn, type PrototypeInteraction } from "@/components/canvas/prototype-types";
+import { Tip } from "@/components/ui/tip";
 
 const MIN_ZOOM = 0.3;
 const MAX_ZOOM = 2.5;
@@ -575,9 +576,11 @@ export function CanvasModeView({
 
       <div className="absolute right-4 bottom-4 z-30 flex items-center gap-2 text-muted-foreground">
         <span className="rounded-full border border-border/60 bg-card px-2.5 py-1 text-xs">{zoomPct}%</span>
-        <button className="rounded-full border border-border/60 bg-card p-1.5 hover:text-foreground" aria-label="Help">
-          <HelpCircle className="h-3.5 w-3.5" />
-        </button>
+        <Tip label="Help">
+          <button className="rounded-full border border-border/60 bg-card p-1.5 hover:text-foreground" aria-label="Help">
+            <HelpCircle className="h-3.5 w-3.5" />
+          </button>
+        </Tip>
       </div>
 
       {overlay}

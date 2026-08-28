@@ -22,6 +22,8 @@ export function PresentModeView({
   deviceMode,
   activeScreen,
   onNavigate,
+  showVariations = true,
+  interactive = true,
 }: {
   generationPrompt: string;
   maxVariations?: number;
@@ -31,6 +33,14 @@ export function PresentModeView({
   deviceMode: DeviceMode;
   activeScreen: HealthScreenId;
   onNavigate: (id: HealthScreenId) => void;
+  /** Start-with-your-design has no AI-generated variations to offer — just the
+   * one imported design. Defaults to true everywhere else. */
+  showVariations?: boolean;
+  /** Whether clicking inside the screen itself navigates — gated on the
+   * Prototype tab having been generated for Start-with-your-design (Screens
+   * panel navigation, driven by the same onNavigate, stays available either
+   * way). Defaults to true everywhere else. */
+  interactive?: boolean;
 }) {
   const variationIds = ALL_VARIATIONS.slice(0, Math.max(1, Math.min(3, maxVariations)));
 
@@ -59,7 +69,7 @@ export function PresentModeView({
             {compareSelection.map((id) => (
               <DeviceFrame key={id} mode={deviceMode}>
                 <div onClick={handleScreenClick(id)} className="h-full w-full">
-                  <ActiveScreen theme={VARIATION_THEMES[id]} onNavigate={onNavigate} />
+                  <ActiveScreen theme={VARIATION_THEMES[id]} onNavigate={interactive ? onNavigate : () => {}} />
                 </div>
               </DeviceFrame>
             ))}
@@ -67,7 +77,7 @@ export function PresentModeView({
         ) : (
           <DeviceFrame mode={deviceMode}>
             <div onClick={handleScreenClick(selectedVariation)} className="h-full w-full">
-              <ActiveScreen theme={VARIATION_THEMES[selectedVariation]} onNavigate={onNavigate} />
+              <ActiveScreen theme={VARIATION_THEMES[selectedVariation]} onNavigate={interactive ? onNavigate : () => {}} />
             </div>
           </DeviceFrame>
         )}
@@ -84,17 +94,19 @@ export function PresentModeView({
         )}
       </div>
 
-      <div className="absolute top-1/2 right-5 z-30 -translate-y-1/2">
-        <VariationsPanel
-          variationIds={variationIds}
-          selected={selectedVariation}
-          onSelect={setSelectedVariation}
-          compareMode={compareMode}
-          compareSelection={compareSelection}
-          onCompareToggle={() => setCompareMode((v) => !v)}
-          onCompareSelectionChange={setCompareSelection}
-        />
-      </div>
+      {showVariations && (
+        <div className="absolute top-1/2 right-5 z-30 -translate-y-1/2">
+          <VariationsPanel
+            variationIds={variationIds}
+            selected={selectedVariation}
+            onSelect={setSelectedVariation}
+            compareMode={compareMode}
+            compareSelection={compareSelection}
+            onCompareToggle={() => setCompareMode((v) => !v)}
+            onCompareSelectionChange={setCompareSelection}
+          />
+        </div>
+      )}
 
       <PresentPromptBar taggedElement={taggedElement} onClearTag={() => setTaggedElement(null)} />
     </div>

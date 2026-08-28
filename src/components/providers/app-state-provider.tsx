@@ -32,10 +32,14 @@ type AppState = {
   setAuthMode: (mode: AuthMode) => void;
   recentProjects: RecentProject[];
   touchRecentProject: (id: string, title: string) => void;
+  savedTemplateSlugs: string[];
+  isTemplateSaved: (slug: string) => boolean;
+  toggleSavedTemplate: (slug: string) => void;
 };
 
 const STORAGE_KEY = "loku-mock-user";
 const PROJECTS_KEY = "loku-recent-projects";
+const SAVED_TEMPLATES_KEY = "loku-saved-templates";
 
 const AppStateContext = createContext<AppState | null>(null);
 
@@ -45,6 +49,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthModeState] = useState<AuthMode>("signin");
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
+  const [savedTemplateSlugs, setSavedTemplateSlugs] = useState<string[]>([]);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
@@ -58,6 +63,15 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     if (storedProjects) {
       try {
         setRecentProjects(JSON.parse(storedProjects));
+      } catch {
+        // ignore malformed storage
+      }
+    }
+
+    const storedSaved = window.localStorage.getItem(SAVED_TEMPLATES_KEY);
+    if (storedSaved) {
+      try {
+        setSavedTemplateSlugs(JSON.parse(storedSaved));
       } catch {
         // ignore malformed storage
       }
@@ -97,6 +111,19 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const isTemplateSaved = useCallback(
+    (slug: string) => savedTemplateSlugs.includes(slug),
+    [savedTemplateSlugs],
+  );
+
+  const toggleSavedTemplate = useCallback((slug: string) => {
+    setSavedTemplateSlugs((prev) => {
+      const next = prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug];
+      window.localStorage.setItem(SAVED_TEMPLATES_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   return (
     <AppStateContext.Provider
       value={{
@@ -112,6 +139,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setAuthMode,
         recentProjects,
         touchRecentProject,
+        savedTemplateSlugs,
+        isTemplateSaved,
+        toggleSavedTemplate,
       }}
     >
       {children}

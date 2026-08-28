@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { ArrowRight, ChevronDown, ChevronUp, Mic, Palette, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ModelDropdown } from "@/components/ai/model-dropdown";
+import { Tip } from "@/components/ui/tip";
 
 const SUGGESTIONS = ["Try a different style", "Change the overall color theme", "Add a new page"];
 
@@ -12,33 +14,39 @@ export function PresentPromptBar({ taggedElement, onClearTag }: { taggedElement?
 
   if (collapsed) {
     return (
-      <button
-        onClick={() => setCollapsed(false)}
-        aria-label="Expand prompt bar"
-        className="absolute bottom-6 left-1/2 z-30 flex h-6 w-16 -translate-x-1/2 items-center justify-center rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF]"
-      >
-        <ChevronUp className="h-4 w-4 text-white" />
-      </button>
+      <Tip label="Expand prompt bar" className="absolute bottom-6 left-1/2 z-30 -translate-x-1/2">
+        <button
+          onClick={() => setCollapsed(false)}
+          aria-label="Expand prompt bar"
+          className="flex h-6 w-16 items-center justify-center rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF]"
+        >
+          <ChevronUp className="h-4 w-4 text-white" />
+        </button>
+      </Tip>
     );
   }
 
   return (
     <div className="absolute bottom-4 left-1/2 z-30 w-[626px] -translate-x-1/2">
-      <button
-        onClick={() => setCollapsed(true)}
-        aria-label="Collapse prompt bar"
-        className="absolute -top-3 left-1/2 z-10 flex h-6 w-16 -translate-x-1/2 items-center justify-center rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF]"
-      >
-        <ChevronDown className="h-4 w-4 text-white" />
-      </button>
+      <Tip label="Collapse prompt bar" className="absolute -top-3 left-1/2 z-10 -translate-x-1/2">
+        <button
+          onClick={() => setCollapsed(true)}
+          aria-label="Collapse prompt bar"
+          className="flex h-6 w-16 items-center justify-center rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF]"
+        >
+          <ChevronDown className="h-4 w-4 text-white" />
+        </button>
+      </Tip>
 
       <div className="rounded-3xl bg-[#18181a] p-4">
         {taggedElement && (
           <div className="mb-2 flex w-fit items-center gap-1.5 rounded-full bg-primary/15 px-2.5 py-1 text-[10px] text-primary">
             {taggedElement}
-            <button onClick={onClearTag} aria-label="Remove tag">
-              <X className="h-3 w-3" />
-            </button>
+            <Tip label="Remove tag">
+              <button onClick={onClearTag} aria-label="Remove tag">
+                <X className="h-3 w-3" />
+              </button>
+            </Tip>
           </div>
         )}
         <input
@@ -49,27 +57,32 @@ export function PresentPromptBar({ taggedElement, onClearTag }: { taggedElement?
         />
         <div className="mt-4 flex items-center justify-between">
           <div className="flex items-center gap-3 text-white/70">
-            <button aria-label="Attach">
-              <Plus className="h-4 w-4" />
-            </button>
-            <button aria-label="Color">
-              <Palette className="h-5 w-5" />
-            </button>
+            <Tip label="Attach">
+              <button aria-label="Attach">
+                <Plus className="h-4 w-4" />
+              </button>
+            </Tip>
+            <Tip label="Color">
+              <button aria-label="Color">
+                <Palette className="h-5 w-5" />
+              </button>
+            </Tip>
           </div>
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-1 rounded-full border border-white/70 px-3 py-2 text-xs font-medium text-white/70">
-              Model
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
-            <button aria-label="Voice input" className="text-white/70">
-              <Mic className="h-4 w-4" />
-            </button>
-            <button
-              aria-label="Submit"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF] text-white"
-            >
-              <ArrowRight className="h-4 w-4" />
-            </button>
+            <ModelDropdown variant="dark" />
+            <Tip label="Voice input">
+              <button aria-label="Voice input" className="text-white/70">
+                <Mic className="h-4 w-4" />
+              </button>
+            </Tip>
+            <Tip label="Submit">
+              <button
+                aria-label="Submit"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF] text-white"
+              >
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </Tip>
           </div>
         </div>
       </div>

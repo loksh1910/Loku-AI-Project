@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Undo2, Redo2, Share2, Sparkles, HelpCircle } from "lucide-react";
+import { Undo2, Redo2, Share2, Sparkles, HelpCircle, ExternalLink } from "lucide-react";
 import { SketchLeftRail } from "@/components/sketch/sketch-left-rail";
 import { ScreensPanel } from "@/components/sketch/screens-panel";
 import { RightSketchTools } from "@/components/sketch/right-sketch-tools";
@@ -24,12 +24,18 @@ import { UserFlowView } from "@/components/canvas/user-flow-view";
 import { buildDefaultFlow, buildDefaultSitemap, buildEmptyFlow, type FlowEdge, type FlowNode } from "@/components/canvas/flow-types";
 import { ManualEditView } from "@/components/canvas/manual-edit-view";
 import { ManualPrototypeView } from "@/components/canvas/manual-prototype-view";
+import { ManualPresentView } from "@/components/canvas/manual-present-view";
 import { newManualFrame, buildEmptyManual, type ManualElement, type ManualFrame } from "@/components/canvas/manual-types";
 import type { ManualInteraction } from "@/components/canvas/manual-prototype-types";
 import { buildHealthScreensManual } from "@/components/canvas/manual-health-seed";
 import { CodeModeView } from "@/components/canvas/code-mode-view";
+import { GenerateTabOverlay } from "@/components/canvas/generate-tab-overlay";
+import { ExportMenu, type ExportScreen } from "@/components/canvas/export-menu";
+import { PublishMenu } from "@/components/present/publish-menu";
+import { SCREEN_ORDER, SCREEN_SPECS } from "@/components/canvas/code-types";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tip } from "@/components/ui/tip";
 import { useAppState } from "@/components/providers/app-state-provider";
 import type { SketchDevice } from "@/lib/sketch-devices";
 import { FRAME_SCALE } from "@/components/sketch/sketch-constants";
@@ -47,6 +53,10 @@ import {
 import { toast } from "sonner";
 
 const FRAME_GAP = 60;
+
+// Start-with-your-design's own pipeline tabs — everything AI would derive
+// from the imported file, each gated behind its own one-time "Generate X" prompt.
+const LOCKABLE_TABS: PipelineTab[] = ["prototype", "wireframe", "userflow", "sitemap", "code"];
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -80,8 +90,17 @@ function SketchCanvasPage() {
   const isDesignEntry = entryParam === "design";
   const aiScratch = entryParam === "scratch";
   const initialPromptParam = searchParams.get("prompt") ?? "";
+  // "Start with your design" (Figma/Markdown import) — boots straight into
+  // Canvas Mode's AI tab with the same real seeded content Template/Sketch
+  // already generate (there's no real file parsing behind this, so the mock
+  // import always "produces" the same HealthVisor app). AI mode and Design
+  // are usable immediately; every other pipeline tab (Prototype, Wireframe,
+  // User Flow, Sitemap, Code) is something AI would derive FROM the import,
+  // so each gates behind its own one-time "Generate X" prompt — see
+  // unlockedTabs below.
+  const fromDesignImport = entryParam === "import";
   // Neither entry has a sketch of its own to switch back to.
-  const noSketchMode = fromTemplate || flowKind !== null || isDesignEntry || aiScratch;
+  const noSketchMode = fromTemplate || flowKind !== null || isDesignEntry || aiScratch || fromDesignImport;
 
   const [frames, setFrames] = useState<SketchFrame[]>([]);
   const [elements, setElements] = useState<SketchElement[]>([]);
@@ -114,19 +133,30 @@ function SketchCanvasPage() {
             ? "Untitled Design"
             : aiScratch
               ? "New Project"
-              : "Project name",
+              : fromDesignImport
+                ? "Healthcare App Design"
+                : "Project name",
   );
   const [editingName, setEditingName] = useState(false);
   const [flowStage, setFlowStage] = useState<"idle" | "questions" | "building">(
     aiScratch && initialPromptParam ? "questions" : "idle",
   );
   const [viewMode, setViewMode] = useState<ViewMode>(
-    fromTemplate ? "present" : flowKind ? "flow" : isDesignEntry || aiScratch ? "canvas" : "sketch",
+    fromTemplate ? "present" : flowKind ? "flow" : isDesignEntry || aiScratch || fromDesignImport ? "canvas" : "sketch",
   );
   const [generationPrompt, setGenerationPrompt] = useState("");
   const [maxVariations, setMaxVariations] = useState(3);
   const [presentPanel, setPresentPanel] = useState<PresentPanel>("screens");
-  const [hasGenerated, setHasGenerated] = useState(fromTemplate);
+  // The Design/Prototype and Start-with-your-design entries never gate behind
+  // a generation step the way Sketch/Scratch do — they want the Canvas/Present
+  // switch available from the very first frame.
+  const [hasGenerated, setHasGenerated] = useState(fromTemplate || isDesignEntry || fromDesignImport);
+  // Start-with-your-design only: which pipeline tabs have had their one-time
+  // "Generate X" prompt completed. AI mode + Design need no such gate.
+  const [unlockedTabs, setUnlockedTabs] = useState<Set<PipelineTab>>(
+    () => new Set<PipelineTab>(fromDesignImport ? ["ai", "manualedit"] : []),
+  );
+  const [generatingTab, setGeneratingTab] = useState<PipelineTab | null>(null);
   const [presentTool, setPresentTool] = useState<PresentTool>("pointer");
   const [presentDeviceMode, setPresentDeviceMode] = useState<DeviceMode>("mobile");
   const [presentActiveScreen, setPresentActiveScreen] = useState<HealthScreenId>("splash");
@@ -158,8 +188,20 @@ function SketchCanvasPage() {
   const [manualPast, setManualPast] = useState<{ frames: ManualFrame[]; elements: ManualElement[] }[]>([]);
   const [manualFuture, setManualFuture] = useState<{ frames: ManualFrame[]; elements: ManualElement[] }[]>([]);
   const [manualInteractions, setManualInteractions] = useState<ManualInteraction[]>([]);
-  const [manualInteractionsPast, setManualInteractionsPast] = useState<ManualInteraction[][]>([]);
-  const [manualInteractionsFuture, setManualInteractionsFuture] = useState<ManualInteraction[][]>([]);
+  // The Prototype tab can now drag/resize the same frames/elements Design mode
+  // edits AND create/edit/delete wires, so its one Undo/Redo button needs a
+  // single history spanning both kinds of change, in the order they actually
+  // happened — two separate stacks (graph vs interactions) can't interleave
+  // correctly. Design tab keeps its own separate manualPast/manualFuture.
+  type ProtoSnapshot = { frames: ManualFrame[]; elements: ManualElement[]; interactions: ManualInteraction[] };
+  const [protoPast, setProtoPast] = useState<ProtoSnapshot[]>([]);
+  const [protoFuture, setProtoFuture] = useState<ProtoSnapshot[]>([]);
+  // Present Mode's own screen-to-screen navigation history for the Design/
+  // Prototype entry — mirrors presentPast/presentFuture above, just keyed to
+  // freeform frame ids instead of the fixed HealthScreenId union.
+  const [manualPresentActiveFrameIdRaw, setManualPresentActiveFrameIdRaw] = useState<string | null>(null);
+  const [manualPresentPast, setManualPresentPast] = useState<string[]>([]);
+  const [manualPresentFuture, setManualPresentFuture] = useState<string[]>([]);
 
   function presentNavigate(id: HealthScreenId) {
     setPresentPast((p) => [...p, presentActiveScreen]);
@@ -303,35 +345,89 @@ function SketchCanvasPage() {
     setManualGraph(next);
   }, [manualFuture, manualGraph]);
 
-  const manualInteractionsCommit = useCallback(
-    (updater: (prev: ManualInteraction[]) => ManualInteraction[]) => {
-      setManualInteractionsPast((p) => [...p, manualInteractions].slice(-50));
-      setManualInteractionsFuture([]);
-      setManualInteractions(updater(manualInteractions));
-    },
-    [manualInteractions],
+  const protoSnapshot = useCallback(
+    (): ProtoSnapshot => ({ frames: manualGraph.frames, elements: manualGraph.elements, interactions: manualInteractions }),
+    [manualGraph, manualInteractions],
   );
 
-  const manualInteractionsBeginChange = useCallback(() => {
-    setManualInteractionsPast((p) => [...p, manualInteractions].slice(-50));
-    setManualInteractionsFuture([]);
-  }, [manualInteractions]);
+  // Continuous drag/resize in Prototype tab snapshots once at gesture-start
+  // (matching every other view's onBeginChange), then mutates manualGraph
+  // directly per pointer move — no history entry per pixel.
+  const protoBeginChange = useCallback(() => {
+    setProtoPast((p) => [...p, protoSnapshot()].slice(-50));
+    setProtoFuture([]);
+  }, [protoSnapshot]);
 
-  const manualInteractionsUndo = useCallback(() => {
-    if (manualInteractionsPast.length === 0) return;
-    const prev = manualInteractionsPast[manualInteractionsPast.length - 1];
-    setManualInteractionsPast((p) => p.slice(0, -1));
-    setManualInteractionsFuture((f) => [manualInteractions, ...f]);
-    setManualInteractions(prev);
-  }, [manualInteractionsPast, manualInteractions]);
+  // Discrete wire operations (create on drop, field edits, delete) commit in
+  // one shot, same shape as every other pipeline's xCommit.
+  const protoCommitInteractions = useCallback(
+    (updater: (prev: ManualInteraction[]) => ManualInteraction[]) => {
+      setProtoPast((p) => [...p, protoSnapshot()].slice(-50));
+      setProtoFuture([]);
+      setManualInteractions(updater(manualInteractions));
+    },
+    [protoSnapshot, manualInteractions],
+  );
 
-  const manualInteractionsRedo = useCallback(() => {
-    if (manualInteractionsFuture.length === 0) return;
-    const next = manualInteractionsFuture[0];
-    setManualInteractionsFuture((f) => f.slice(1));
-    setManualInteractionsPast((p) => [...p, manualInteractions]);
-    setManualInteractions(next);
-  }, [manualInteractionsFuture, manualInteractions]);
+  const protoUndo = useCallback(() => {
+    if (protoPast.length === 0) return;
+    const prev = protoPast[protoPast.length - 1];
+    setProtoPast((p) => p.slice(0, -1));
+    setProtoFuture((f) => [protoSnapshot(), ...f]);
+    setManualGraph({ frames: prev.frames, elements: prev.elements });
+    setManualInteractions(prev.interactions);
+  }, [protoPast, protoSnapshot]);
+
+  const protoRedo = useCallback(() => {
+    if (protoFuture.length === 0) return;
+    const next = protoFuture[0];
+    setProtoFuture((f) => f.slice(1));
+    setProtoPast((p) => [...p, protoSnapshot()]);
+    setManualGraph({ frames: next.frames, elements: next.elements });
+    setManualInteractions(next.interactions);
+  }, [protoFuture, protoSnapshot]);
+
+  // Reactive rather than a plain default value: falls back to the first frame
+  // whenever nothing's been visited yet, or whatever was active got deleted
+  // back in Design mode while Present wasn't looking.
+  const manualPresentActiveFrameId =
+    manualPresentActiveFrameIdRaw && manualGraph.frames.some((f) => f.id === manualPresentActiveFrameIdRaw)
+      ? manualPresentActiveFrameIdRaw
+      : (manualGraph.frames[0]?.id ?? null);
+
+  function manualPresentNavigate(frameId: string) {
+    if (manualPresentActiveFrameId) setManualPresentPast((p) => [...p, manualPresentActiveFrameId]);
+    setManualPresentFuture([]);
+    setManualPresentActiveFrameIdRaw(frameId);
+  }
+
+  function manualPresentUndo() {
+    if (manualPresentPast.length === 0) return;
+    const prev = manualPresentPast[manualPresentPast.length - 1];
+    setManualPresentPast((p) => p.slice(0, -1));
+    if (manualPresentActiveFrameId) setManualPresentFuture((f) => [manualPresentActiveFrameId, ...f]);
+    setManualPresentActiveFrameIdRaw(prev);
+  }
+
+  function manualPresentRedo() {
+    if (manualPresentFuture.length === 0) return;
+    const next = manualPresentFuture[0];
+    setManualPresentFuture((f) => f.slice(1));
+    if (manualPresentActiveFrameId) setManualPresentPast((p) => [...p, manualPresentActiveFrameId]);
+    setManualPresentActiveFrameIdRaw(next);
+  }
+
+  function generateTab(tab: PipelineTab) {
+    setGeneratingTab(tab);
+  }
+
+  function completeGenerateTab() {
+    setUnlockedTabs((prev) => {
+      if (!generatingTab) return prev;
+      return new Set([...prev, generatingTab]);
+    });
+    setGeneratingTab(null);
+  }
 
   function addManualFrame(device: SketchDevice) {
     const lastX = manualGraph.frames.length
@@ -641,7 +737,7 @@ function SketchCanvasPage() {
 
   const isDesignPrototypeTab = isDesignEntry && canvasPipelineTab === "prototype";
   const canvasPipelineUndo = isDesignPrototypeTab
-    ? manualInteractionsUndo
+    ? protoUndo
     : canvasPipelineTab === "userflow"
       ? flowUndo
       : canvasPipelineTab === "sitemap"
@@ -650,7 +746,7 @@ function SketchCanvasPage() {
           ? manualUndo
           : canvasUndo;
   const canvasPipelineRedo = isDesignPrototypeTab
-    ? manualInteractionsRedo
+    ? protoRedo
     : canvasPipelineTab === "userflow"
       ? flowRedo
       : canvasPipelineTab === "sitemap"
@@ -659,7 +755,7 @@ function SketchCanvasPage() {
           ? manualRedo
           : canvasRedo;
   const canvasPipelineCanUndo = isDesignPrototypeTab
-    ? manualInteractionsPast.length > 0
+    ? protoPast.length > 0
     : canvasPipelineTab === "userflow"
       ? flowPast.length > 0
       : canvasPipelineTab === "sitemap"
@@ -668,7 +764,7 @@ function SketchCanvasPage() {
           ? manualPast.length > 0
           : canvasPast.length > 0;
   const canvasPipelineCanRedo = isDesignPrototypeTab
-    ? manualInteractionsFuture.length > 0
+    ? protoFuture.length > 0
     : canvasPipelineTab === "userflow"
       ? flowFuture.length > 0
       : canvasPipelineTab === "sitemap"
@@ -676,6 +772,24 @@ function SketchCanvasPage() {
         : canvasPipelineTab === "manualedit"
           ? manualFuture.length > 0
           : canvasFuture.length > 0;
+
+  // What "Export" operates on depends entirely on which pipeline tab is
+  // active — the AI-generated tabs share the fixed health-app screen set,
+  // while Manual Edit/Design-Prototype and Sketch mode export whatever real
+  // frames the user has actually drawn. Flow modes (User Flow/Sitemap) have
+  // no "screens" of their own yet, so they just get an empty list — Export
+  // stays in its normal empty state rather than doing something fake.
+  const healthScreens: ExportScreen[] = SCREEN_ORDER.map((id) => ({ id, label: SCREEN_SPECS[id].name }));
+  const exportScreens: ExportScreen[] =
+    viewMode === "sketch"
+      ? frames.map((f) => ({ id: f.id, label: f.name }))
+      : viewMode === "canvas"
+        ? isDesignPrototypeTab || canvasPipelineTab === "manualedit"
+          ? manualGraph.frames.map((f) => ({ id: f.id, label: f.name }))
+          : canvasPipelineTab === "userflow" || canvasPipelineTab === "sitemap"
+            ? []
+            : healthScreens
+        : [];
 
   if (!isSignedIn) return null;
 
@@ -695,7 +809,10 @@ function SketchCanvasPage() {
         />
       )}
       {viewMode === "flow" && <SketchLeftRail />}
-      {viewMode === "present" && <PresentLeftRail panel={presentPanel} onPanelChange={setPresentPanel} />}
+      {viewMode === "present" && isDesignEntry && (
+        <SketchLeftRail onScreensClick={() => setManualScreensOpen((v) => !v)} screensActive={manualScreensOpen} />
+      )}
+      {viewMode === "present" && !isDesignEntry && <PresentLeftRail panel={presentPanel} onPanelChange={setPresentPanel} />}
       {viewMode === "canvas" && (canvasPipelineTab === "manualedit" || isDesignPrototypeTab) && (
         <SketchLeftRail onScreensClick={() => setManualScreensOpen((v) => !v)} screensActive={manualScreensOpen} />
       )}
@@ -703,17 +820,19 @@ function SketchCanvasPage() {
         <PresentLeftRail panel={canvasPanel} onPanelChange={setCanvasPanel} />
       )}
 
-      {viewMode === "present" && hasGenerated && (
+      {viewMode === "present" && hasGenerated && (isDesignEntry ? manualGraph.frames.length > 0 : true) && (
         <div className="absolute top-3 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2">
           <PresentTopToolbar
             tool={presentTool}
             onToolChange={setPresentTool}
             deviceMode={presentDeviceMode}
             onDeviceModeChange={setPresentDeviceMode}
-            onUndo={presentUndo}
-            onRedo={presentRedo}
-            canUndo={presentPast.length > 0}
-            canRedo={presentFuture.length > 0}
+            onUndo={isDesignEntry ? manualPresentUndo : presentUndo}
+            onRedo={isDesignEntry ? manualPresentRedo : presentRedo}
+            canUndo={isDesignEntry ? manualPresentPast.length > 0 : presentPast.length > 0}
+            canRedo={isDesignEntry ? manualPresentFuture.length > 0 : presentFuture.length > 0}
+            tools={isDesignEntry ? ["pointer"] : undefined}
+            showDeviceToggle={!isDesignEntry}
           />
         </div>
       )}
@@ -721,22 +840,26 @@ function SketchCanvasPage() {
       {viewMode === "canvas" && (
         <div className="absolute top-3 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2">
           <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
-            <button
-              onClick={canvasPipelineUndo}
-              disabled={!canvasPipelineCanUndo}
-              className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
-              aria-label="Undo"
-            >
-              <Undo2 className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={canvasPipelineRedo}
-              disabled={!canvasPipelineCanRedo}
-              className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
-              aria-label="Redo"
-            >
-              <Redo2 className="h-3.5 w-3.5" />
-            </button>
+            <Tip label="Undo" side="bottom">
+              <button
+                onClick={canvasPipelineUndo}
+                disabled={!canvasPipelineCanUndo}
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
+                aria-label="Undo"
+              >
+                <Undo2 className="h-3.5 w-3.5" />
+              </button>
+            </Tip>
+            <Tip label="Redo" side="bottom">
+              <button
+                onClick={canvasPipelineRedo}
+                disabled={!canvasPipelineCanRedo}
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
+                aria-label="Redo"
+              >
+                <Redo2 className="h-3.5 w-3.5" />
+              </button>
+            </Tip>
           </div>
           <CanvasPipelineBar
             tab={canvasPipelineTab}
@@ -756,22 +879,26 @@ function SketchCanvasPage() {
       {viewMode === "sketch" && (
         <>
           <div className="absolute top-3 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
-            <button
-              onClick={undo}
-              disabled={past.length === 0}
-              className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
-              aria-label="Undo"
-            >
-              <Undo2 className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={redo}
-              disabled={future.length === 0}
-              className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
-              aria-label="Redo"
-            >
-              <Redo2 className="h-3.5 w-3.5" />
-            </button>
+            <Tip label="Undo" side="bottom">
+              <button
+                onClick={undo}
+                disabled={past.length === 0}
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
+                aria-label="Undo"
+              >
+                <Undo2 className="h-3.5 w-3.5" />
+              </button>
+            </Tip>
+            <Tip label="Redo" side="bottom">
+              <button
+                onClick={redo}
+                disabled={future.length === 0}
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
+                aria-label="Redo"
+              >
+                <Redo2 className="h-3.5 w-3.5" />
+              </button>
+            </Tip>
           </div>
 
           <BottomToolbar
@@ -788,26 +915,36 @@ function SketchCanvasPage() {
 
       {viewMode === "flow" && (
         <div className="absolute top-3 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
-          <button
-            onClick={flowKind === "sitemap" ? sitemapUndo : flowUndo}
-            disabled={flowKind === "sitemap" ? sitemapPast.length === 0 : flowPast.length === 0}
-            className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
-            aria-label="Undo"
-          >
-            <Undo2 className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={flowKind === "sitemap" ? sitemapRedo : flowRedo}
-            disabled={flowKind === "sitemap" ? sitemapFuture.length === 0 : flowFuture.length === 0}
-            className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
-            aria-label="Redo"
-          >
-            <Redo2 className="h-3.5 w-3.5" />
-          </button>
+          <Tip label="Undo" side="bottom">
+            <button
+              onClick={flowKind === "sitemap" ? sitemapUndo : flowUndo}
+              disabled={flowKind === "sitemap" ? sitemapPast.length === 0 : flowPast.length === 0}
+              className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
+              aria-label="Undo"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+            </button>
+          </Tip>
+          <Tip label="Redo" side="bottom">
+            <button
+              onClick={flowKind === "sitemap" ? sitemapRedo : flowRedo}
+              disabled={flowKind === "sitemap" ? sitemapFuture.length === 0 : flowFuture.length === 0}
+              className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30"
+              aria-label="Redo"
+            >
+              <Redo2 className="h-3.5 w-3.5" />
+            </button>
+          </Tip>
         </div>
       )}
 
-      <div className="relative flex min-h-0 flex-1 flex-col">
+      {/* min-w-0 matters here: without it, this column refuses to shrink below
+          its content's intrinsic width (a flex item's default min-width is
+          "auto", not 0) — Code Mode's own unwrapped code lines are wide enough
+          to hit that, stretching this column (and the header riding along
+          inside it) past the viewport, clipped invisibly by the root's own
+          overflow-hidden rather than made scrollable. */}
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="z-40 flex items-center justify-between px-4 py-3">
           {editingName ? (
             <input
@@ -846,20 +983,32 @@ function SketchCanvasPage() {
             )}
             <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card px-1.5 py-1">
               <ThemeToggle />
-              <button
-                onClick={() => toast("Share coming soon.")}
-                className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                aria-label="Share"
-              >
-                <Share2 className="h-3.5 w-3.5" />
-              </button>
+              <Tip label="Share" side="bottom">
+                <button
+                  onClick={() => toast("Share coming soon.")}
+                  className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  aria-label="Share"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                </button>
+              </Tip>
             </div>
-            <button
-              onClick={() => toast("Export coming soon.")}
-              className="rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#8E51FF] px-4 py-1.5 text-xs font-medium text-white hover:opacity-90"
-            >
-              Export
-            </button>
+            {viewMode === "present" ? (
+              <>
+                <Tip label="Open in new tab" side="bottom">
+                  <button
+                    onClick={() => window.open(window.location.href, "_blank")}
+                    className="rounded-full border border-border/60 p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    aria-label="Open in new tab"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </button>
+                </Tip>
+                <PublishMenu />
+              </>
+            ) : (
+              <ExportMenu screens={exportScreens} />
+            )}
             <Avatar className="h-7 w-7">
               <AvatarFallback className="bg-primary text-[10px] text-primary-foreground">
                 {userName?.[0]?.toUpperCase() ?? "U"}
@@ -905,6 +1054,15 @@ function SketchCanvasPage() {
               />
             )}
           </div>
+        ) : viewMode === "present" && isDesignEntry ? (
+          <ManualPresentView
+            frames={manualGraph.frames}
+            elements={manualGraph.elements}
+            interactions={manualInteractions}
+            activeFrameId={manualPresentActiveFrameId}
+            onNavigate={manualPresentNavigate}
+            screensOpen={manualScreensOpen}
+          />
         ) : viewMode === "present" ? (
           <PresentModeView
             generationPrompt={generationPrompt}
@@ -915,6 +1073,15 @@ function SketchCanvasPage() {
             deviceMode={presentDeviceMode}
             activeScreen={presentActiveScreen}
             onNavigate={presentNavigate}
+            showVariations={!fromDesignImport}
+            interactive={!fromDesignImport || unlockedTabs.has("prototype")}
+          />
+        ) : viewMode === "canvas" && fromDesignImport && LOCKABLE_TABS.includes(canvasPipelineTab) && !unlockedTabs.has(canvasPipelineTab) ? (
+          <GenerateTabOverlay
+            tab={canvasPipelineTab}
+            generating={generatingTab === canvasPipelineTab}
+            onGenerate={() => generateTab(canvasPipelineTab)}
+            onGenerated={completeGenerateTab}
           />
         ) : viewMode === "canvas" && canvasPipelineTab === "userflow" ? (
           <UserFlowView
@@ -956,10 +1123,12 @@ function SketchCanvasPage() {
             frames={manualGraph.frames}
             elements={manualGraph.elements}
             interactions={manualInteractions}
-            onCommit={manualInteractionsCommit}
-            onBeginChange={manualInteractionsBeginChange}
-            onUndo={manualInteractionsUndo}
-            onRedo={manualInteractionsRedo}
+            onFramesChange={(frames) => setManualGraph((g) => ({ ...g, frames }))}
+            onElementsChange={(elements) => setManualGraph((g) => ({ ...g, elements }))}
+            onCommitInteractions={protoCommitInteractions}
+            onBeginChange={protoBeginChange}
+            onUndo={protoUndo}
+            onRedo={protoRedo}
             onAddFrame={addManualFrame}
             onRenameFrame={renameManualFrame}
             screensOpen={manualScreensOpen}
@@ -1106,12 +1275,14 @@ function SketchCanvasPage() {
             <span className="rounded-full border border-border/60 bg-card px-2.5 py-1 text-xs">
               {zoomPct}%
             </span>
-            <button
-              className="rounded-full border border-border/60 bg-card p-1.5 hover:text-foreground"
-              aria-label="Help"
-            >
-              <HelpCircle className="h-3.5 w-3.5" />
-            </button>
+            <Tip label="Help" side="top">
+              <button
+                className="rounded-full border border-border/60 bg-card p-1.5 hover:text-foreground"
+                aria-label="Help"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+              </button>
+            </Tip>
           </div>
         </div>
         )}

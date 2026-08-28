@@ -11,6 +11,7 @@ import {
 import type { ManualElement, ManualFrame } from "@/components/canvas/manual-types";
 import { CANONICAL_SCREEN_NAMES } from "@/components/canvas/manual-health-seed";
 import { VARIATION_THEMES, type VariationId } from "@/components/present/health-app/theme";
+import { Tip } from "@/components/ui/tip";
 import { cn } from "@/lib/utils";
 
 const VARIATION_ORDER: VariationId[] = ["bold", "playful", "minimal"];
@@ -70,9 +71,11 @@ export function ManualScreensPanel({
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold">Screens</h3>
             <div className="flex items-center gap-1 text-muted-foreground">
-              <button onClick={() => setView("categories")} aria-label="Add screen">
-                <Plus className="h-4 w-4" />
-              </button>
+              <Tip label="Add screen">
+                <button onClick={() => setView("categories")} aria-label="Add screen">
+                  <Plus className="h-4 w-4" />
+                </button>
+              </Tip>
               <Search className="h-4 w-4" />
             </div>
           </div>
@@ -192,13 +195,15 @@ export function ManualScreensPanel({
             return (
               <div key={f.id}>
                 <div className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm hover:bg-secondary">
-                  <button
-                    onClick={() => setExpandedFrameId(expanded ? null : f.id)}
-                    className="shrink-0 text-muted-foreground"
-                    aria-label="Toggle layers"
-                  >
-                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !expanded && "-rotate-90")} />
-                  </button>
+                  <Tip label="Toggle layers">
+                    <button
+                      onClick={() => setExpandedFrameId(expanded ? null : f.id)}
+                      className="shrink-0 text-muted-foreground"
+                      aria-label="Toggle layers"
+                    >
+                      <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !expanded && "-rotate-90")} />
+                    </button>
+                  </Tip>
                   <span className="w-5 shrink-0 text-xs text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
                   {renamingId === f.id ? (
                     <input
@@ -253,9 +258,11 @@ export function ManualScreensPanel({
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">Screens</h3>
                 <div className="flex items-center gap-1 text-muted-foreground">
-                  <button onClick={() => setView("categories")} aria-label="Add screen">
-                    <Plus className="h-4 w-4" />
-                  </button>
+                  <Tip label="Add screen">
+                    <button onClick={() => setView("categories")} aria-label="Add screen">
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </Tip>
                   <Search className="h-4 w-4" />
                 </div>
               </div>

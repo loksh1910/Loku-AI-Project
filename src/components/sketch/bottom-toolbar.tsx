@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import type { BottomTool, ShapeType } from "@/components/sketch/sketch-types";
+import { Tip } from "@/components/ui/tip";
 import { cn } from "@/lib/utils";
 
 const SHAPES: { type: ShapeType; label: string; icon: typeof Shapes }[] = [
@@ -94,9 +95,11 @@ export function BottomToolbar({
             <div className="flex items-center gap-2 px-2 py-1 text-xs whitespace-nowrap text-primary">
               <Pencil className="h-3 w-3" />
               Connect a drawing tablet or pad for more precise sketching
-              <button onClick={() => setShowPenHint(false)} aria-label="Dismiss hint">
-                <X className="h-3 w-3" />
-              </button>
+              <Tip label="Dismiss hint">
+                <button onClick={() => setShowPenHint(false)} aria-label="Dismiss hint">
+                  <X className="h-3 w-3" />
+                </button>
+              </Tip>
             </div>
           </Popup>
         )}
@@ -135,15 +138,17 @@ function ToolButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      className={cn(
-        "rounded-full p-2.5 text-muted-foreground hover:bg-secondary hover:text-foreground",
-        active && "bg-primary text-primary-foreground hover:bg-primary",
-      )}
-    >
-      <Icon className="h-4 w-4" />
-    </button>
+    <Tip label={label}>
+      <button
+        onClick={onClick}
+        aria-label={label}
+        className={cn(
+          "rounded-full p-2.5 text-muted-foreground hover:bg-secondary hover:text-foreground",
+          active && "bg-primary text-primary-foreground hover:bg-primary",
+        )}
+      >
+        <Icon className="h-4 w-4" />
+      </button>
+    </Tip>
   );
 }

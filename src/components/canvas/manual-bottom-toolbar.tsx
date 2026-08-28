@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BoxSelect, Frame as FrameIcon, Hand, Layers, MousePointer2, PenTool, Scissors, Type, Palette } from "lucide-react";
+import { Tip } from "@/components/ui/tip";
 import { cn } from "@/lib/utils";
 import { ShapePickerGrid } from "@/components/canvas/flow-shape-picker";
 import { COLOR_SWATCHES, type FlowNodeShape } from "@/components/canvas/flow-types";
@@ -158,15 +159,17 @@ function ToolButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      className={cn(
-        "rounded-full p-2.5 text-muted-foreground hover:bg-secondary hover:text-foreground",
-        active && "bg-primary text-primary-foreground hover:bg-primary",
-      )}
-    >
-      <Icon className="h-4 w-4" />
-    </button>
+    <Tip label={label}>
+      <button
+        onClick={onClick}
+        aria-label={label}
+        className={cn(
+          "rounded-full p-2.5 text-muted-foreground hover:bg-secondary hover:text-foreground",
+          active && "bg-primary text-primary-foreground hover:bg-primary",
+        )}
+      >
+        <Icon className="h-4 w-4" />
+      </button>
+    </Tip>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { BoxSelect, Hand, MousePointer2, Pencil, Plus } from "lucide-react";
+import { Tip } from "@/components/ui/tip";
 import { cn } from "@/lib/utils";
 import type { CanvasTool } from "@/components/canvas/canvas-types";
 
@@ -29,26 +30,29 @@ export function CanvasRightToolbar({
   return (
     <div className="flex flex-col items-center gap-1 rounded-full border border-border/60 bg-card px-1 py-1.5">
       {visibleTools.map((t) => (
-        <button
-          key={t.id}
-          onClick={() => onToolChange(t.id)}
-          className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
-            tool === t.id && "bg-primary/15 text-primary",
-          )}
-          aria-label={t.label}
-        >
-          <t.icon className="h-3.5 w-3.5" />
-        </button>
+        <Tip key={t.id} label={t.label} side="left">
+          <button
+            onClick={() => onToolChange(t.id)}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
+              tool === t.id && "bg-primary/15 text-primary",
+            )}
+            aria-label={t.label}
+          >
+            <t.icon className="h-3.5 w-3.5" />
+          </button>
+        </Tip>
       ))}
       {showAddFiles && (
-        <button
-          onClick={onAddFiles}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
-          aria-label="Add files to canvas"
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
+        <Tip label="Add files to canvas" side="left">
+          <button
+            onClick={onAddFiles}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+            aria-label="Add files to canvas"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        </Tip>
       )}
     </div>
   );

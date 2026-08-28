@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { SketchConnector, SketchFrame } from "@/components/sketch/sketch-types";
+import { Tip } from "@/components/ui/tip";
 
 const TRIGGERS = ["All Actions", "On Click", "On Hover", "After Delay"];
 const ACTIONS = ["Navigate to", "Open Overlay", "Swap Screen", "Scroll to"];
@@ -42,16 +43,18 @@ export function ConnectorInteractionBox({
           <span className="h-1.5 w-1.5 rounded-full bg-primary" />
           Interaction
         </div>
-        <button
-          onClick={() => {
-            setOpen(false);
-            onClose();
-          }}
-          className="text-muted-foreground hover:text-foreground"
-          aria-label="Close"
-        >
-          ✕
-        </button>
+        <Tip label="Close">
+          <button
+            onClick={() => {
+              setOpen(false);
+              onClose();
+            }}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </Tip>
       </div>
 
       <div className="mb-3 flex items-center justify-between rounded-lg border border-dashed border-border/60 px-2 py-1.5 text-xs">

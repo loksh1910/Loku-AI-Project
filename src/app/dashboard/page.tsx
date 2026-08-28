@@ -11,12 +11,13 @@ import {
   Share2,
   UploadCloud,
   Sparkles,
-  MapPin,
+  Lightbulb,
 } from "lucide-react";
 import { LeftRail } from "@/components/left-rail";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AiPromptBar } from "@/components/ai-prompt-bar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tip } from "@/components/ui/tip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +28,7 @@ import { TemplateCard } from "@/components/templates/template-card";
 import { TemplateDetailDialog } from "@/components/templates/template-detail-dialog";
 import { TemplateSearchRow } from "@/components/templates/template-search-row";
 import { FilterDialog } from "@/components/templates/filter-dialog";
+import { ImportDesignDialog } from "@/components/dashboard/import-design-dialog";
 import { templates, type Template, type TemplateDevice } from "@/lib/templates-data";
 import { templateMatchesFilters } from "@/lib/filter-match";
 import { useAppState } from "@/components/providers/app-state-provider";
@@ -36,15 +38,18 @@ type EntryCard = {
   label: string;
   icon: typeof LayoutTemplate;
   href?: string;
+  /** For entries that open a dialog first (e.g. "Start with your design")
+   * rather than navigating straight away. */
+  onClick?: () => void;
 };
 
-const ENTRY_CARDS: EntryCard[] = [
+const ENTRY_CARD_DEFS = [
   { label: "Start from Template", icon: LayoutTemplate, href: "/templates" },
   { label: "Sketch to UI", icon: PencilRuler, href: "/sketch" },
   { label: "Sitemap/user flow to UI", icon: Share2, href: "/flow" },
   { label: "Start with your design", icon: UploadCloud },
   { label: "Start from Scratch", icon: Plus, href: "/sketch/canvas?entry=design" },
-];
+] as const;
 
 const SUGGESTIONS = [
   "e-commerce app for selling shoes",
@@ -61,6 +66,11 @@ export default function DashboardPage() {
   const [templateDevice, setTemplateDevice] = useState<TemplateDevice>("web");
   const [filterOpen, setFilterOpen] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<string[]>([]);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+
+  const ENTRY_CARDS: EntryCard[] = ENTRY_CARD_DEFS.map((def) =>
+    def.label === "Start with your design" ? { ...def, onClick: () => setImportDialogOpen(true) } : { ...def },
+  );
 
   useEffect(() => {
     if (hydrated && !isSignedIn) router.replace("/");
@@ -78,22 +88,26 @@ export default function DashboardPage() {
 
       <div className="flex flex-1 flex-col">
         <header className="flex items-center justify-end gap-2 px-[60px] py-4">
-          <button
-            className="rounded-full p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
-            onClick={() => toast("No new notifications.")}
-            aria-label="Notifications"
-          >
-            <Bell className="h-4 w-4" />
-          </button>
+          <Tip label="Notifications" side="bottom">
+            <button
+              className="rounded-full p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
+              onClick={() => toast("No new notifications.")}
+              aria-label="Notifications"
+            >
+              <Bell className="h-4 w-4" />
+            </button>
+          </Tip>
           <ThemeToggle />
           <DropdownMenu>
-            <DropdownMenuTrigger aria-label="Profile menu" className="rounded-full">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary text-xs text-primary-foreground">
-                  {userName?.[0]?.toUpperCase() ?? "U"}
-                </AvatarFallback>
-              </Avatar>
-            </DropdownMenuTrigger>
+            <Tip label="Profile menu" side="bottom">
+              <DropdownMenuTrigger aria-label="Profile menu" className="rounded-full">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-primary text-xs text-primary-foreground">
+                    {userName?.[0]?.toUpperCase() ?? "U"}
+                  </AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+            </Tip>
             <DropdownMenuContent align="end">
               <DropdownMenuItem disabled>{userName}</DropdownMenuItem>
               <SignOutItem />
@@ -121,12 +135,12 @@ export default function DashboardPage() {
                 // immediately instead of waiting for a second submit in-canvas.
                 router.push(`/sketch/canvas?entry=scratch&prompt=${encodeURIComponent(text)}`);
               }}
-              className="mx-auto mt-6 max-w-2xl"
+              className="mx-auto mt-12 max-w-2xl"
             />
 
             <div className="mx-auto mt-3 flex max-w-2xl flex-wrap items-center justify-center gap-2">
               <span className="rounded-full border border-border/60 p-1.5 text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5" />
+                <Lightbulb className="h-3.5 w-3.5" />
               </span>
               {SUGGESTIONS.map((s) => (
                 <button
@@ -141,7 +155,7 @@ export default function DashboardPage() {
           </section>
 
           <section className="mx-auto mt-8 grid max-w-2xl grid-cols-2 gap-2.5 sm:grid-cols-5">
-            {ENTRY_CARDS.map(({ label, icon: Icon, href }) => {
+            {ENTRY_CARDS.map(({ label, icon: Icon, href, onClick }) => {
               const card = (
                 <div className="flex h-24 flex-col items-center justify-center gap-1.5 rounded-xl border border-border/60 bg-card px-2 text-center text-xs hover:border-primary/50">
                   <Icon className="h-4 w-4 text-primary" />
@@ -156,7 +170,7 @@ export default function DashboardPage() {
                 <button
                   key={label}
                   className="text-left"
-                  onClick={() => toast(`${label} is coming soon.`)}
+                  onClick={onClick ?? (() => toast(`${label} is coming soon.`))}
                 >
                   {card}
                 </button>
@@ -243,6 +257,14 @@ export default function DashboardPage() {
         onOpenChange={setFilterOpen}
         selected={appliedFilters}
         onApply={setAppliedFilters}
+      />
+      <ImportDesignDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onOpenEditor={() => {
+          setImportDialogOpen(false);
+          router.push("/sketch/canvas?entry=import");
+        }}
       />
     </div>
   );

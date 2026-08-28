@@ -150,4 +150,21 @@
   html {
     @apply font-sans;
   }
+
+  /* Quick default interaction smoothing (≤200ms) for every hoverable/clickable
+   * control — hover states, active-tab highlights, disabled toggles, etc. all
+   * animate instead of snapping. Low specificity (type/attribute selectors) so
+   * any component's own explicit `transition-*`/`duration-*` utility class
+   * (higher specificity) still wins — this is only the fallback default. */
+  button,
+  a,
+  [role="button"],
+  [role="tab"],
+  input,
+  select,
+  textarea {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-timing-function: ease-out;
+    transition-duration: 150ms;
+  }
 }

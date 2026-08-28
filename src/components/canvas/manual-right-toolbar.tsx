@@ -19,6 +19,7 @@ import {
   Pin,
   Type as TypeIcon,
 } from "lucide-react";
+import { Tip } from "@/components/ui/tip";
 import { cn } from "@/lib/utils";
 import { COLOR_SWATCHES, FONT_FAMILIES, FONT_SIZES } from "@/components/canvas/flow-types";
 import {
@@ -130,17 +131,18 @@ export function ManualRightToolbar({
         )}
 
         {PANELS.map((p) => (
-          <button
-            key={p.id}
-            onClick={() => onPanelChange(panel === p.id ? null : p.id)}
-            aria-label={p.label}
-            className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
-              panel === p.id && "bg-primary/15 text-primary",
-            )}
-          >
-            <p.icon className="h-3.5 w-3.5" />
-          </button>
+          <Tip key={p.id} label={p.label} side="left">
+            <button
+              onClick={() => onPanelChange(panel === p.id ? null : p.id)}
+              aria-label={p.label}
+              className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
+                panel === p.id && "bg-primary/15 text-primary",
+              )}
+            >
+              <p.icon className="h-3.5 w-3.5" />
+            </button>
+          </Tip>
         ))}
       </div>
     </div>
@@ -162,13 +164,15 @@ function PanelShell({
     <div className="w-[230px] rounded-2xl border border-border/60 bg-popover p-3.5 shadow-2xl">
       <div className="mb-2.5 flex items-center justify-between">
         <p className="text-xs font-semibold">{title}</p>
-        <button
-          onClick={onTogglePin}
-          aria-label={pinned ? "Unpin" : "Pin"}
-          className={cn("rounded p-0.5", pinned ? "text-primary" : "text-muted-foreground hover:text-foreground")}
-        >
-          <Pin className="h-3 w-3" fill={pinned ? "currentColor" : "none"} />
-        </button>
+        <Tip label={pinned ? "Unpin" : "Pin"}>
+          <button
+            onClick={onTogglePin}
+            aria-label={pinned ? "Unpin" : "Pin"}
+            className={cn("rounded p-0.5", pinned ? "text-primary" : "text-muted-foreground hover:text-foreground")}
+          >
+            <Pin className="h-3 w-3" fill={pinned ? "currentColor" : "none"} />
+          </button>
+        </Tip>
       </div>
       {children}
     </div>
@@ -252,18 +256,24 @@ function PositionPanel({
         <p className="mb-1 text-[10px] text-muted-foreground">Rotation</p>
         <div className="flex items-center gap-1.5">
           <NumberField label="" value={element.rotation} onChange={(rotation) => onUpdateElement({ rotation })} />
-          <button
-            onClick={() => onUpdateElement({ flipH: !element.flipH })}
-            className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border", element.flipH ? "border-primary bg-primary/15 text-primary" : "border-border/60 text-muted-foreground")}
-          >
-            <FlipHorizontal2 className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => onUpdateElement({ flipV: !element.flipV })}
-            className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border", element.flipV ? "border-primary bg-primary/15 text-primary" : "border-border/60 text-muted-foreground")}
-          >
-            <FlipVertical2 className="h-3.5 w-3.5" />
-          </button>
+          <Tip label="Flip horizontal">
+            <button
+              onClick={() => onUpdateElement({ flipH: !element.flipH })}
+              aria-label="Flip horizontal"
+              className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border", element.flipH ? "border-primary bg-primary/15 text-primary" : "border-border/60 text-muted-foreground")}
+            >
+              <FlipHorizontal2 className="h-3.5 w-3.5" />
+            </button>
+          </Tip>
+          <Tip label="Flip vertical">
+            <button
+              onClick={() => onUpdateElement({ flipV: !element.flipV })}
+              aria-label="Flip vertical"
+              className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border", element.flipV ? "border-primary bg-primary/15 text-primary" : "border-border/60 text-muted-foreground")}
+            >
+              <FlipVertical2 className="h-3.5 w-3.5" />
+            </button>
+          </Tip>
         </div>
       </PanelShell>
     );
@@ -677,13 +687,15 @@ function EffectsPanel({
             </option>
           ))}
         </select>
-        <button
-          onClick={() => onUpdateElement({ hasShadow: !element.hasShadow })}
-          aria-label="Toggle effect"
-          className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border", element.hasShadow ? "border-primary text-primary" : "border-border/60 text-muted-foreground")}
-        >
-          <Droplet className="h-3.5 w-3.5" />
-        </button>
+        <Tip label="Toggle effect">
+          <button
+            onClick={() => onUpdateElement({ hasShadow: !element.hasShadow })}
+            aria-label="Toggle effect"
+            className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border", element.hasShadow ? "border-primary text-primary" : "border-border/60 text-muted-foreground")}
+          >
+            <Droplet className="h-3.5 w-3.5" />
+          </button>
+        </Tip>
       </div>
       <p className="mb-1 text-[10px] text-muted-foreground">Position</p>
       <div className="mb-2.5 grid grid-cols-2 gap-2">

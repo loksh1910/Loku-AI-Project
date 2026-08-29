@@ -9,9 +9,11 @@ export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
 
   return (
-    // Every caller places this in a top header bar — the tooltip opens
-    // downward so it isn't clipped above the viewport.
-    <Tip label="Toggle theme" side="bottom">
+    // Every caller places this near the right edge of a top header bar (on
+    // some pages it's the very last/rightmost control) — opening the tooltip
+    // to the left keeps it inside the viewport instead of poking out past
+    // the right edge and forcing a page-wide horizontal scrollbar.
+    <Tip label="Toggle theme" side="left">
       <Button
         variant="ghost"
         size="icon"

@@ -77,6 +77,10 @@ export type ManualFrame = {
   spacing: number;
   clipContent: boolean;
   flow: FlowDirection;
+  /** Toggled from the Screens panel's eye icon — hidden frames (and every
+   * element inside them) are skipped from canvas rendering entirely, same as
+   * a hidden layer in Figma. Undefined/false = visible. */
+  hidden?: boolean;
   // Which Variations-menu row this frame belongs to. Freeform frames (drawn with
   // the Frame tool, or added blank via "+") aren't part of the variation system
   // and just default to "bold" — only the seeded health-app screens use this

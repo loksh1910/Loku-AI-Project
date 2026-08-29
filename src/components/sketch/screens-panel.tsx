@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Plus, Search, ChevronRight, Eye, MoreHorizontal } from "lucide-react";
+import { Plus, Search, ChevronRight, Eye, EyeOff, MoreHorizontal } from "lucide-react";
 import {
   DEVICE_CATALOG,
   DEVICE_CATEGORIES,
@@ -10,6 +10,7 @@ import {
 } from "@/lib/sketch-devices";
 import type { SketchFrame } from "@/components/sketch/sketch-types";
 import { Tip } from "@/components/ui/tip";
+import { cn } from "@/lib/utils";
 
 type View = "empty" | "categories" | "devices" | "list";
 
@@ -18,11 +19,13 @@ export function ScreensPanel({
   onAddFrame,
   onClose,
   onRenameFrame,
+  onToggleHidden,
 }: {
   frames: SketchFrame[];
   onAddFrame: (device: SketchDevice) => void;
   onClose: () => void;
   onRenameFrame: (id: string, name: string) => void;
+  onToggleHidden: (id: string) => void;
 }) {
   const [view, setView] = useState<View>(frames.length > 0 ? "list" : "empty");
   const [category, setCategory] = useState<SketchDeviceCategory>("Mobile");
@@ -115,7 +118,7 @@ export function ScreensPanel({
             <div className="flex items-center gap-2 py-1.5 text-sm font-medium text-primary">
               {category}
             </div>
-            <div className="max-h-[300px] overflow-y-auto">
+            <div className="max-h-[300px] overflow-x-hidden overflow-y-auto">
               {DEVICE_CATALOG[category].map((d) => (
                 <button
                   key={d.label}
@@ -181,7 +184,7 @@ export function ScreensPanel({
           <p className="mb-1 px-1 text-[10px] tracking-wide text-muted-foreground uppercase">
             User Flow · {frames.length} screens
           </p>
-          <div className="max-h-[320px] overflow-y-auto">
+          <div className="max-h-[320px] overflow-x-hidden overflow-y-auto">
             {frames.map((f, i) => (
               <div
                 key={f.id}
@@ -207,14 +210,22 @@ export function ScreensPanel({
                 ) : (
                   <span
                     onDoubleClick={() => setRenamingId(f.id)}
-                    className="flex-1 truncate"
+                    className={cn("flex-1 truncate", f.hidden && "text-muted-foreground/50")}
                     title="Double-click to rename"
                   >
                     {f.name}
                   </span>
                 )}
                 <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-                <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                <Tip label={f.hidden ? "Show screen" : "Hide screen"} side="left">
+                  <button
+                    onClick={() => onToggleHidden(f.id)}
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label={f.hidden ? "Show screen" : "Hide screen"}
+                  >
+                    {f.hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                </Tip>
               </div>
             ))}
           </div>

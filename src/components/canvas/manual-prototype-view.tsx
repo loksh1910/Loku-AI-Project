@@ -132,6 +132,7 @@ export function ManualPrototypeView({
   const [selection, setSelection] = useState<Selection>(null);
   const [connectorDrag, setConnectorDrag] = useState<ConnectorDrag | null>(null);
   const [activeInteraction, setActiveInteraction] = useState<{ id: string; x: number; y: number } | null>(null);
+  const clipboardRef = useRef<{ kind: "frame"; frame: ManualFrame } | { kind: "element"; element: ManualElement } | null>(null);
 
   useEffect(() => {
     zoomRef.current = zoom;
@@ -179,11 +180,45 @@ export function ManualPrototypeView({
       if (e.key === "Escape") {
         setSelection(null);
         setConnectorDrag(null);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+        if (!selection) return;
+        e.preventDefault();
+        if (selection.kind === "frame") {
+          const f = frames.find((fr) => fr.id === selection.id);
+          if (f) clipboardRef.current = { kind: "frame", frame: f };
+        } else {
+          const el = elements.find((e2) => e2.id === selection.id);
+          if (el) clipboardRef.current = { kind: "element", element: el };
+        }
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+        const clip = clipboardRef.current;
+        if (!clip) return;
+        e.preventDefault();
+        if (clip.kind === "frame") {
+          const id = `frame-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+          const newFrame = { ...clip.frame, id, x: clip.frame.x + 30, y: clip.frame.y + 30 };
+          onFramesChange([...frames, newFrame]);
+          selectFrame(newFrame);
+        } else {
+          const id = `el-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+          const newElement = { ...clip.element, id, x: clip.element.x + 30, y: clip.element.y + 30 };
+          onElementsChange([...elements, newElement]);
+          selectElement(newElement);
+        }
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onUndo, onRedo]);
+    // selectFrame/selectElement aren't memoized (they're plain functions
+    // redefined every render), so listing them here would just re-subscribe
+    // this listener on every render for no behavioral difference — the
+    // listener always calls whatever the latest render defined anyway.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection, frames, elements, onFramesChange, onElementsChange, onUndo, onRedo]);
 
   function toViewport(canvasX: number, canvasY: number) {
     return { x: viewportSize.width / 2 + pan.x + canvasX * zoom, y: viewportSize.height / 2 + pan.y + canvasY * zoom };
@@ -210,7 +245,10 @@ export function ManualPrototypeView({
   }
 
   function handleFramePointerDown(e: React.PointerEvent, f: ManualFrame) {
-    if (tool === "hand") return;
+    // Scroll-wheel (middle) button always pans, even over a frame — let it
+    // bubble to the viewport's own pan handler instead of selecting here.
+    if (tool === "hand" || e.button === 1) return;
+    if (e.button !== 0) return;
     e.stopPropagation();
     selectFrame(f);
     onBeginChange();
@@ -218,7 +256,8 @@ export function ManualPrototypeView({
   }
 
   function handleElementPointerDown(e: React.PointerEvent, el: ManualElement) {
-    if (tool === "hand") return;
+    if (tool === "hand" || e.button === 1) return;
+    if (e.button !== 0) return;
     e.stopPropagation();
     selectElement(el);
     onBeginChange();
@@ -262,6 +301,7 @@ export function ManualPrototypeView({
       panStart.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
       return;
     }
+    if (e.button !== 0) return;
     if (e.target === e.currentTarget) setSelection(null);
   }
 
@@ -370,7 +410,7 @@ export function ManualPrototypeView({
         onPointerLeave={handleViewportPointerUp}
       >
         <div className="absolute top-1/2 left-1/2" style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}>
-          {frames.map((f) => {
+          {frames.filter((f) => !f.hidden).map((f) => {
             const isSelected = selection?.kind === "frame" && selection.id === f.id;
             const w = f.device.width * zoom;
             const h = f.device.height * zoom;
@@ -408,6 +448,7 @@ export function ManualPrototypeView({
 
           {elements.map((el) => {
             const parent = frames.find((f) => f.id === el.frameId);
+            if (parent?.hidden) return null;
             const isSelected = selection?.kind === "element" && selection.id === el.id;
             return (
               <ManualElementView
@@ -515,6 +556,7 @@ export function ManualPrototypeView({
             const el = elements.find((e) => e.id === id);
             if (el) selectElement(el);
           }}
+          onToggleHidden={(id) => onFramesChange(frames.map((f) => (f.id === id ? { ...f, hidden: !f.hidden } : f)))}
         />
       )}
 

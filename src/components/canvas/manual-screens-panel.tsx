@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Plus, Search, Square, Circle, Triangle, Diamond, Spline, Type as TypeIcon, ImageIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, EyeOff, Plus, Search, Square, Circle, Triangle, Diamond, Spline, Type as TypeIcon, ImageIcon } from "lucide-react";
 import {
   DEVICE_CATALOG,
   DEVICE_CATEGORIES,
@@ -37,6 +37,7 @@ export function ManualScreensPanel({
   onClose,
   onRenameFrame,
   onSelectElement,
+  onToggleHidden,
 }: {
   frames: ManualFrame[];
   elements: ManualElement[];
@@ -45,6 +46,7 @@ export function ManualScreensPanel({
   onClose: () => void;
   onRenameFrame: (id: string, name: string) => void;
   onSelectElement: (id: string) => void;
+  onToggleHidden: (id: string) => void;
 }) {
   const [view, setView] = useState<View>(frames.length > 0 ? "list" : "empty");
   const [category, setCategory] = useState<SketchDeviceCategory>("Mobile");
@@ -132,7 +134,7 @@ export function ManualScreensPanel({
               ← Back
             </button>
             <div className="flex items-center gap-2 py-1.5 text-sm font-medium text-primary">{category}</div>
-            <div className="max-h-[300px] overflow-y-auto">
+            <div className="max-h-[300px] overflow-x-hidden overflow-y-auto">
               {DEVICE_CATALOG[category].map((d) => (
                 <button
                   key={d.label}
@@ -220,10 +222,23 @@ export function ManualScreensPanel({
                       className="flex-1 rounded bg-secondary px-1 py-0.5 text-sm outline-none"
                     />
                   ) : (
-                    <span onDoubleClick={() => setRenamingId(f.id)} className="flex-1 truncate" title="Double-click to rename">
+                    <span
+                      onDoubleClick={() => setRenamingId(f.id)}
+                      className={cn("flex-1 truncate", f.hidden && "text-muted-foreground/50")}
+                      title="Double-click to rename"
+                    >
                       {f.name}
                     </span>
                   )}
+                  <Tip label={f.hidden ? "Show screen" : "Hide screen"} side="left">
+                    <button
+                      onClick={() => onToggleHidden(f.id)}
+                      className="shrink-0 text-muted-foreground hover:text-foreground"
+                      aria-label={f.hidden ? "Show screen" : "Hide screen"}
+                    >
+                      {f.hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                  </Tip>
                 </div>
                 {expanded && (
                   <div className="ml-6 space-y-0.5 border-l border-border/60 pl-2">
@@ -269,7 +284,7 @@ export function ManualScreensPanel({
               <p className="mb-1 px-1 text-[10px] tracking-wide text-muted-foreground uppercase">
                 {grouped ? `${variationsPresent.length} variations` : `${frames.length} screens`}
               </p>
-              <div className="max-h-[380px] overflow-y-auto">
+              <div className="max-h-[380px] overflow-x-hidden overflow-y-auto">
                 {grouped ? (
                   <>
                     {variationsPresent.map((v) => (

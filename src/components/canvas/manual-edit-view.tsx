@@ -22,6 +22,9 @@ import {
 } from "@/components/canvas/manual-types";
 import type { FlowNodeShape } from "@/components/canvas/flow-types";
 import { Tip } from "@/components/ui/tip";
+import { rectsIntersect } from "@/lib/utils";
+import { computeAlignSnap, computeNeighborGaps, unionRect, DEFAULT_SNAP_PX, type AlignLine, type GapSegment, type GuideRect } from "@/lib/alignment-guides";
+import { AlignmentGuidesOverlay } from "@/components/canvas/alignment-guides-overlay";
 
 const MIN_ZOOM = 0.3;
 const MAX_ZOOM = 2.5;
@@ -32,7 +35,13 @@ function uid(prefix: string) {
 }
 
 type Selection = { kind: "frame"; id: string } | { kind: "element"; id: string } | null;
-type DragState = { id: string; startX: number; startY: number; startClientX: number; startClientY: number };
+type DragState = {
+  startClientX: number;
+  startClientY: number;
+  frames: { id: string; startX: number; startY: number }[];
+  elements: { id: string; startX: number; startY: number }[];
+};
+type MarqueeRect = { x: number; y: number; w: number; h: number };
 type ResizeState = { id: string; corner: "nw" | "ne" | "sw" | "se"; startX: number; startY: number; startW: number; startH: number; startClientX: number; startClientY: number };
 type FrameDraft = { startX: number; startY: number; x: number; y: number; w: number; h: number };
 type PenDraft = { frameId: string; points: { x: number; y: number }[] };
@@ -44,6 +53,15 @@ function clientToLocal(clientX: number, clientY: number, rect: DOMRect, pan: { x
     x: (clientX - rect.left - rect.width / 2 - pan.x) / zoom,
     y: (clientY - rect.top - rect.height / 2 - pan.y) / zoom,
   };
+}
+
+function frameRectOf(f: ManualFrame): GuideRect {
+  return { x: f.x, y: f.y, w: f.device.width, h: f.device.height };
+}
+
+function elementAbsRect(el: ManualElement, frames: ManualFrame[]): GuideRect | null {
+  const parent = frames.find((f) => f.id === el.frameId);
+  return parent ? { x: parent.x + el.x, y: parent.y + el.y, w: el.w, h: el.h } : null;
 }
 
 export function ManualEditView({
@@ -93,6 +111,13 @@ export function ManualEditView({
   const [frameDraft, setFrameDraft] = useState<FrameDraft | null>(null);
   const [penDraft, setPenDraft] = useState<PenDraft | null>(null);
   const [variations, setVariations] = useState<VariationId[]>(["bold"]);
+  const [marquee, setMarquee] = useState<MarqueeRect | null>(null);
+  const marqueeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const clipboardRef = useRef<{ frames: ManualFrame[]; elements: ManualElement[] }>({ frames: [], elements: [] });
+  // Figma-style smart guides — the whole dragged selection (frames and/or
+  // elements together) snaps as one shape against every other frame/element
+  // on the canvas, same group-as-one-box convention used everywhere else.
+  const [dragGuides, setDragGuides] = useState<{ lines: AlignLine[]; gaps: GapSegment[] }>({ lines: [], gaps: [] });
 
   useEffect(() => {
     zoomRef.current = zoom;
@@ -142,12 +167,40 @@ export function ManualEditView({
           elements: prev.elements.filter((el) => !selectedIds.includes(el.id) && !selectedIds.includes(el.frameId)),
         }));
         setSelectedIds([]);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+        if (selectedIds.length === 0) return;
+        e.preventDefault();
+        clipboardRef.current = {
+          frames: frames.filter((f) => selectedIds.includes(f.id)),
+          elements: elements.filter((el) => selectedIds.includes(el.id)),
+        };
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+        const clip = clipboardRef.current;
+        if (clip.frames.length === 0 && clip.elements.length === 0) return;
+        e.preventDefault();
+        // Copied elements whose parent frame was copied too move together
+        // with their new frame; a copied element whose frame wasn't selected
+        // stays attached to that same original frame, just offset.
+        const frameIdMap = new Map(clip.frames.map((f) => [f.id, uid("frame")]));
+        const newFrames = clip.frames.map((f) => ({ ...f, id: frameIdMap.get(f.id)!, x: f.x + 30, y: f.y + 30 }));
+        const newElements = clip.elements.map((el) => {
+          const newFrameId = frameIdMap.get(el.frameId);
+          return newFrameId
+            ? { ...el, id: uid("el"), frameId: newFrameId }
+            : { ...el, id: uid("el"), x: el.x + 30, y: el.y + 30 };
+        });
+        onCommit((prev) => ({ frames: [...prev.frames, ...newFrames], elements: [...prev.elements, ...newElements] }));
+        setSelectedIds([...newFrames.map((f) => f.id), ...newElements.map((el) => el.id)]);
         setSelection(null);
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [selectedIds, onUndo, onRedo, onCommit]);
+  }, [selectedIds, frames, elements, onUndo, onRedo, onCommit]);
 
   function selectSingle(kind: "frame" | "element", id: string) {
     setSelection({ kind, id });
@@ -155,10 +208,13 @@ export function ManualEditView({
   }
 
   function handleViewportPointerDown(e: React.PointerEvent) {
+    // Scroll-wheel (middle) button always pans, regardless of tool — left
+    // button is reserved for picking/marquee-selecting.
     if (tool === "hand" || e.button === 1) {
       panStart.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
       return;
     }
+    if (e.button !== 0) return;
     if (tool === "frame" && e.target === e.currentTarget) {
       const rect = viewportRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -167,8 +223,18 @@ export function ManualEditView({
       return;
     }
     if (e.target === e.currentTarget) {
-      setSelection(null);
-      setSelectedIds([]);
+      if (!e.shiftKey) {
+        setSelection(null);
+        setSelectedIds([]);
+      }
+      if (tool === "pointer") {
+        const rect = viewportRef.current?.getBoundingClientRect();
+        if (rect) {
+          const p = clientToLocal(e.clientX, e.clientY, rect, pan, zoom);
+          marqueeStartRef.current = p;
+          setMarquee({ x: p.x, y: p.y, w: 0, h: 0 });
+        }
+      }
     }
   }
 
@@ -177,6 +243,29 @@ export function ManualEditView({
       const dx = e.clientX - panStart.current.x;
       const dy = e.clientY - panStart.current.y;
       setPan({ x: panStart.current.px + dx, y: panStart.current.py + dy });
+    }
+    if (marqueeStartRef.current) {
+      const rect = viewportRef.current?.getBoundingClientRect();
+      if (rect) {
+        const p = clientToLocal(e.clientX, e.clientY, rect, pan, zoom);
+        const start = marqueeStartRef.current;
+        const x = Math.min(start.x, p.x);
+        const y = Math.min(start.y, p.y);
+        const w = Math.abs(p.x - start.x);
+        const h = Math.abs(p.y - start.y);
+        setMarquee({ x, y, w, h });
+        const hitFrameIds = frames
+          .filter((f) => !f.hidden && rectsIntersect(x, y, w, h, f.x, f.y, f.device.width, f.device.height))
+          .map((f) => f.id);
+        const hitElementIds = elements
+          .filter((el) => {
+            const parent = frames.find((f) => f.id === el.frameId);
+            if (!parent || parent.hidden) return false;
+            return rectsIntersect(x, y, w, h, parent.x + el.x, parent.y + el.y, el.w, el.h);
+          })
+          .map((el) => el.id);
+        setSelectedIds([...hitFrameIds, ...hitElementIds]);
+      }
     }
     if (frameDraft) {
       const rect = viewportRef.current?.getBoundingClientRect();
@@ -192,12 +281,50 @@ export function ManualEditView({
     }
     if (dragRef.current) {
       const d = dragRef.current;
-      const dx = (e.clientX - d.startClientX) / zoom;
-      const dy = (e.clientY - d.startClientY) / zoom;
-      if (selection?.kind === "frame") {
-        onFramesChange(frames.map((f) => (f.id === d.id ? { ...f, x: d.startX + dx, y: d.startY + dy } : f)));
-      } else {
-        onElementsChange(elements.map((el) => (el.id === d.id ? { ...el, x: d.startX + dx, y: d.startY + dy } : el)));
+      const rawDx = (e.clientX - d.startClientX) / zoom;
+      const rawDy = (e.clientY - d.startClientY) / zoom;
+
+      const draggedFrameIds = new Set(d.frames.map((f) => f.id));
+      const draggedElementIds = new Set(d.elements.map((el) => el.id));
+      const others: GuideRect[] = [
+        ...frames.filter((f) => !f.hidden && !draggedFrameIds.has(f.id)).map(frameRectOf),
+        ...elements.filter((el) => !draggedElementIds.has(el.id)).map((el) => elementAbsRect(el, frames)).filter((r): r is GuideRect => !!r),
+      ];
+      const movingRects: GuideRect[] = [
+        ...d.frames
+          .map((f) => {
+            const full = frames.find((ff) => ff.id === f.id);
+            return full ? { x: f.startX + rawDx, y: f.startY + rawDy, w: full.device.width, h: full.device.height } : null;
+          })
+          .filter((r): r is GuideRect => !!r),
+        ...d.elements
+          .map((el) => {
+            const full = elements.find((ee) => ee.id === el.id);
+            const parent = full ? frames.find((f) => f.id === full.frameId) : null;
+            return full && parent ? { x: parent.x + el.startX + rawDx, y: parent.y + el.startY + rawDy, w: full.w, h: full.h } : null;
+          })
+          .filter((r): r is GuideRect => !!r),
+      ];
+      const movingBox = unionRect(movingRects);
+      let dx = rawDx;
+      let dy = rawDy;
+      if (movingBox) {
+        const snap = computeAlignSnap(movingBox, others, DEFAULT_SNAP_PX / zoom);
+        dx = rawDx + snap.dx;
+        dy = rawDy + snap.dy;
+        setDragGuides({ lines: snap.lines, gaps: computeNeighborGaps({ ...movingBox, x: movingBox.x + snap.dx, y: movingBox.y + snap.dy }, others) });
+      }
+
+      // Drags carry a snapshot of every selected frame/element's start
+      // position — a multi-selection (marquee or shift-click) moves as one
+      // group instead of just whatever was directly grabbed.
+      if (d.frames.length > 0) {
+        const byId = new Map(d.frames.map((f) => [f.id, f]));
+        onFramesChange(frames.map((f) => (byId.has(f.id) ? { ...f, x: byId.get(f.id)!.startX + dx, y: byId.get(f.id)!.startY + dy } : f)));
+      }
+      if (d.elements.length > 0) {
+        const byId = new Map(d.elements.map((el) => [el.id, el]));
+        onElementsChange(elements.map((el) => (byId.has(el.id) ? { ...el, x: byId.get(el.id)!.startX + dx, y: byId.get(el.id)!.startY + dy } : el)));
       }
     }
     if (resizeRef.current) {
@@ -255,6 +382,9 @@ export function ManualEditView({
     dragRef.current = null;
     resizeRef.current = null;
     frameResizeRef.current = null;
+    marqueeStartRef.current = null;
+    setMarquee(null);
+    setDragGuides({ lines: [], gaps: [] });
     if (frameDraft && frameDraft.w > 20 && frameDraft.h > 20) {
       const device: SketchDevice = { label: "Frame", width: Math.round(frameDraft.w), height: Math.round(frameDraft.h) };
       const newFrame = { ...newManualFrame(device, frameDraft.x, `Frame ${frames.length + 1}`), y: frameDraft.y };
@@ -272,8 +402,30 @@ export function ManualEditView({
     return { x: (e.clientX - rect.left) / zoom, y: (e.clientY - rect.top) / zoom };
   }
 
+  // Shared by handleFramePointerDown/startElementDrag: snapshots the start
+  // position of every currently-selected frame/element so a drag on any one
+  // of them moves the whole multi-selection together.
+  function beginDrag(nextSelectedIds: string[], e: React.PointerEvent) {
+    dragRef.current = {
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      frames: frames.filter((f) => nextSelectedIds.includes(f.id)).map((f) => ({ id: f.id, startX: f.x, startY: f.y })),
+      elements: elements.filter((el) => nextSelectedIds.includes(el.id)).map((el) => ({ id: el.id, startX: el.x, startY: el.y })),
+    };
+  }
+
+  function nextSelectionFor(id: string, shiftKey: boolean) {
+    if (shiftKey) return selectedIds.includes(id) ? selectedIds.filter((sid) => sid !== id) : [...selectedIds, id];
+    // A plain click on an item that's already part of a multi-selection keeps
+    // the whole group selected, so it can be dragged together — only a click
+    // on something outside the current selection collapses back to just it.
+    if (selectedIds.includes(id) && selectedIds.length > 1) return selectedIds;
+    return [id];
+  }
+
   function handleFramePointerDown(e: React.PointerEvent, frame: ManualFrame) {
-    if (tool === "hand" || tool === "frame") return;
+    if (tool === "hand" || tool === "frame" || e.button === 1) return;
+    if (e.button !== 0) return;
 
     if (tool === "text") {
       e.stopPropagation();
@@ -295,9 +447,11 @@ export function ManualEditView({
     }
 
     e.stopPropagation();
-    selectSingle("frame", frame.id);
     onBeginChange();
-    dragRef.current = { id: frame.id, startX: frame.x, startY: frame.y, startClientX: e.clientX, startClientY: e.clientY };
+    const nextSelectedIds = nextSelectionFor(frame.id, e.shiftKey);
+    setSelectedIds(nextSelectedIds);
+    setSelection({ kind: "frame", id: frame.id });
+    beginDrag(nextSelectedIds, e);
   }
 
   function handleFrameDoubleClick(e: React.MouseEvent, frame: ManualFrame) {
@@ -313,16 +467,21 @@ export function ManualEditView({
   }
 
   function startElementDrag(e: React.PointerEvent, el: ManualElement) {
+    if (e.button === 1) return;
     if (tool === "select") {
+      if (e.button !== 0) return;
       e.stopPropagation();
       setSelectedIds((prev) => (prev.includes(el.id) ? prev.filter((id) => id !== el.id) : [...prev, el.id]));
       return;
     }
     if (tool !== "pointer") return;
+    if (e.button !== 0) return;
     e.stopPropagation();
-    selectSingle("element", el.id);
     onBeginChange();
-    dragRef.current = { id: el.id, startX: el.x, startY: el.y, startClientX: e.clientX, startClientY: e.clientY };
+    const nextSelectedIds = nextSelectionFor(el.id, e.shiftKey);
+    setSelectedIds(nextSelectedIds);
+    setSelection({ kind: "element", id: el.id });
+    beginDrag(nextSelectedIds, e);
   }
 
   function startResize(e: React.PointerEvent, el: ManualElement, corner: "nw" | "ne" | "sw" | "se") {
@@ -400,13 +559,27 @@ export function ManualEditView({
     onFramesChange(frames.map((f) => (f.id === id ? { ...f, name } : f)));
   }
 
+  function toggleFrameHidden(id: string) {
+    onFramesChange(frames.map((f) => (f.id === id ? { ...f, hidden: !f.hidden } : f)));
+  }
+
   function updateSelectedFrame(patch: Partial<ManualFrame>) {
+    // A multi-selection (marquee or shift-click) edits every selected frame
+    // at once rather than just the last-clicked one.
+    if (selectedIds.length > 1) {
+      onCommit((prev) => ({ frames: prev.frames.map((f) => (selectedIds.includes(f.id) ? { ...f, ...patch } : f)), elements: prev.elements }));
+      return;
+    }
     const frameId = selection?.kind === "frame" ? selection.id : elements.find((el) => el.id === selection?.id)?.frameId;
     if (!frameId) return;
     onCommit((prev) => ({ frames: prev.frames.map((f) => (f.id === frameId ? { ...f, ...patch } : f)), elements: prev.elements }));
   }
 
   function updateSelectedElement(patch: Partial<ManualElement>) {
+    if (selectedIds.length > 1) {
+      onCommit((prev) => ({ frames: prev.frames, elements: prev.elements.map((el) => (selectedIds.includes(el.id) ? { ...el, ...patch } : el)) }));
+      return;
+    }
     if (selection?.kind !== "element") return;
     onCommit((prev) => ({ frames: prev.frames, elements: prev.elements.map((el) => (el.id === selection.id ? { ...el, ...patch } : el)) }));
   }
@@ -512,10 +685,10 @@ export function ManualEditView({
         onPointerLeave={handleViewportPointerUp}
       >
         <div className="absolute top-1/2 left-1/2" style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}>
-          {frames.map((frame) => {
+          {frames.filter((f) => !f.hidden).map((frame) => {
             const w = frame.device.width * zoom;
             const h = frame.device.height * zoom;
-            const isSelected = selection?.kind === "frame" && selection.id === frame.id;
+            const isSelected = selectedIds.includes(frame.id);
             return (
               <div key={frame.id} className="absolute" style={{ left: frame.x * zoom, top: frame.y * zoom, width: w, height: h }}>
                 {/* Absolutely positioned above the frame box (not stacked in normal flow) so
@@ -593,7 +766,7 @@ export function ManualEditView({
               screen keeps it fully visible anywhere on the canvas. */}
           {elements.map((el) => {
             const parent = frames.find((f) => f.id === el.frameId);
-            if (!parent) return null;
+            if (!parent || parent.hidden) return null;
             return (
               <ManualElementView
                 key={el.id}
@@ -620,6 +793,15 @@ export function ManualEditView({
               style={{ left: frameDraft.x * zoom, top: frameDraft.y * zoom, width: frameDraft.w * zoom, height: frameDraft.h * zoom }}
             />
           )}
+
+          {marquee && (
+            <div
+              className="pointer-events-none absolute border border-primary bg-primary/10"
+              style={{ left: marquee.x * zoom, top: marquee.y * zoom, width: marquee.w * zoom, height: marquee.h * zoom }}
+            />
+          )}
+
+          <AlignmentGuidesOverlay lines={dragGuides.lines} gaps={dragGuides.gaps} zoom={zoom} />
         </div>
       </div>
 
@@ -638,6 +820,7 @@ export function ManualEditView({
           onClose={() => onScreensOpenChange(false)}
           onRenameFrame={renameFrame}
           onSelectElement={(id) => selectSingle("element", id)}
+          onToggleHidden={toggleFrameHidden}
         />
       )}
 

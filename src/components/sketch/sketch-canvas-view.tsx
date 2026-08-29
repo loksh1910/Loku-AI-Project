@@ -12,7 +12,21 @@ import type {
 } from "@/components/sketch/sketch-types";
 import { FRAME_SCALE } from "@/components/sketch/sketch-constants";
 import { Tip } from "@/components/ui/tip";
-import { cn } from "@/lib/utils";
+import { cn, rectsIntersect } from "@/lib/utils";
+import { computeAlignSnap, computeNeighborGaps, gapBetween, unionRect, DEFAULT_SNAP_PX, type AlignLine, type GapSegment, type GuideRect } from "@/lib/alignment-guides";
+import { AlignmentGuidesOverlay } from "@/components/canvas/alignment-guides-overlay";
+
+type HoverEntity = { kind: "frame" | "element"; id: string };
+
+function frameGuideRect(f: SketchFrame): GuideRect {
+  return { x: f.x, y: f.y, w: f.device.width * FRAME_SCALE, h: f.device.height * FRAME_SCALE };
+}
+
+/** Non-path elements only — paths aren't draggable/selectable as a single
+ * rect in this view, so they're excluded from the guide system entirely. */
+function elementCanvasRect(el: Exclude<SketchElement, PathElement>, frame: SketchFrame): GuideRect {
+  return { x: frame.x + el.x * FRAME_SCALE, y: frame.y + el.y * FRAME_SCALE, w: el.w * FRAME_SCALE, h: el.h * FRAME_SCALE };
+}
 
 const MIN_ZOOM = 0.3;
 const MAX_ZOOM = 2.5;
@@ -49,6 +63,9 @@ export function SketchCanvasView({
   onUpdateElement,
   onBeginElementChange,
   onRenameFrame,
+  onMoveFrame,
+  onDeleteFrames,
+  onPasteFrames,
   onCreateConnector,
   onZoomChange,
 }: {
@@ -68,6 +85,9 @@ export function SketchCanvasView({
   onUpdateElement: (id: string, patch: Partial<{ x: number; y: number; w: number; h: number; text: string }>) => void;
   onBeginElementChange: () => void;
   onRenameFrame: (id: string, name: string) => void;
+  onMoveFrame: (id: string, patch: Partial<{ x: number; y: number }>) => void;
+  onDeleteFrames: (ids: string[]) => void;
+  onPasteFrames: (frames: SketchFrame[], elements: SketchElement[]) => void;
   onCreateConnector: (fromFrameId: string, toFrameId: string, anchor: { x: number; y: number }) => void;
   onZoomChange: (zoom: number) => void;
 }) {
@@ -104,6 +124,99 @@ export function SketchCanvasView({
   const drag = useRef<DragState | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
+  // Marquee (drag-to-select) + shift-click multi-select of whole screens,
+  // draggable as a group (frameDragRef) once selected.
+  const [selectedFrameIds, setSelectedFrameIds] = useState<string[]>([]);
+  const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const marqueeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const frameDragRef = useRef<{ startClientX: number; startClientY: number; frames: { id: string; startX: number; startY: number }[] } | null>(null);
+  const frameClipboardRef = useRef<{ frames: SketchFrame[]; elements: SketchElement[] }>({ frames: [], elements: [] });
+
+  // Figma-style smart guides. Frame drags snap against other frames (open
+  // canvas, "zoom-only" units); element drags snap against sibling elements
+  // within the same frame (frame-local, "scale" units, and clipped to that
+  // frame like the elements themselves already are). Alt-hover measurement
+  // is unified across both — a frame and an element are both just a rect in
+  // canvas space once elementCanvasRect converts one into the other's units.
+  const [frameDragGuides, setFrameDragGuides] = useState<{ lines: AlignLine[]; gaps: GapSegment[] }>({ lines: [], gaps: [] });
+  const [elementDragGuides, setElementDragGuides] = useState<{ lines: AlignLine[]; gaps: GapSegment[] }>({ lines: [], gaps: [] });
+  const [elementDragFrameId, setElementDragFrameId] = useState<string | null>(null);
+  const [altPressed, setAltPressed] = useState(false);
+  const [hoverEntity, setHoverEntity] = useState<HoverEntity | null>(null);
+  // Tracked as state (not read from drag/frameDragRef.current during render)
+  // since a lint rule here forbids accessing ref values at render time —
+  // this only needs to gate the Alt-hover computation below.
+  const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      // preventDefault stops the browser's own bare-Alt menu-focus shortcut
+      // from firing, which can otherwise steal focus mid-hold and cut off
+      // the hover's mouse events before Alt is released.
+      if (e.key === "Alt") {
+        e.preventDefault();
+        setAltPressed(true);
+      }
+    }
+    function handleKeyUp(e: KeyboardEvent) {
+      if (e.key === "Alt") setAltPressed(false);
+    }
+    function handleBlur() {
+      setAltPressed(false);
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, []);
+
+  // Element copy/paste/delete is already handled by the page-level keydown
+  // listener (it owns selectedElementId/elements) — this only covers the
+  // frame-multi-select state, which is local to this component.
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      const isEditable = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+      if (isEditable) return;
+
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedFrameIds.length > 0) {
+        e.preventDefault();
+        onDeleteFrames(selectedFrameIds);
+        setSelectedFrameIds([]);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+        if (selectedFrameIds.length === 0) return;
+        e.preventDefault();
+        frameClipboardRef.current = {
+          frames: frames.filter((f) => selectedFrameIds.includes(f.id)),
+          elements: elements.filter((el) => selectedFrameIds.includes(el.frameId)),
+        };
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+        const clip = frameClipboardRef.current;
+        if (clip.frames.length === 0) return;
+        e.preventDefault();
+        const idMap = new Map(clip.frames.map((f) => [f.id, `frame-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`]));
+        const newFrames = clip.frames.map((f) => ({ ...f, id: idMap.get(f.id)!, x: f.x + 30, y: f.y + 30 }));
+        const newElements = clip.elements.map((el) => ({
+          ...el,
+          id: `el-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          frameId: idMap.get(el.frameId) ?? el.frameId,
+        }));
+        onPasteFrames(newFrames, newElements);
+        setSelectedFrameIds(newFrames.map((f) => f.id));
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [selectedFrameIds, frames, elements, onDeleteFrames, onPasteFrames]);
+
   const scale = FRAME_SCALE * zoom;
 
   const zoomRef = useRef(zoom);
@@ -129,39 +242,121 @@ export function SketchCanvasView({
   }, [onZoomChange]);
 
   function handleViewportPointerDown(e: React.PointerEvent) {
+    // Scroll-wheel (middle) button always pans — left button is reserved for
+    // picking/marquee-selecting.
     if (tool === "hand" || e.button === 1) {
       panStart.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
+      return;
+    }
+    if (e.button !== 0) return;
+    if (tool === "pointer" && e.target === e.currentTarget) {
+      if (!e.shiftKey) {
+        setSelectedFrameIds([]);
+        // Clicking empty canvas outside every frame should drop whatever
+        // element selection is active too, same as clicking a frame's own
+        // empty background already does.
+        onSelectElement(null);
+      }
+      const rect = viewportRef.current?.getBoundingClientRect();
+      if (rect) {
+        const p = { x: (e.clientX - rect.left - rect.width / 2 - pan.x) / zoom, y: (e.clientY - rect.top - rect.height / 2 - pan.y) / zoom };
+        marqueeStartRef.current = p;
+        setMarquee({ x: p.x, y: p.y, w: 0, h: 0 });
+      }
     }
   }
 
   function handleViewportPointerMove(e: React.PointerEvent) {
+    // The pointer event's own altKey flag is the source of truth for
+    // Alt-hover — it always reflects the OS's real modifier state, unlike a
+    // separate global keydown/keyup listener for "Alt" alone, which some
+    // browsers intercept for their own menu-focus shortcut before it ever
+    // reaches the page.
+    if (e.altKey !== altPressed) setAltPressed(e.altKey);
     if (panStart.current) {
       const dx = e.clientX - panStart.current.x;
       const dy = e.clientY - panStart.current.y;
       setPan({ x: panStart.current.px + dx, y: panStart.current.py + dy });
     }
+    if (marqueeStartRef.current) {
+      const rect = viewportRef.current?.getBoundingClientRect();
+      if (rect) {
+        const start = marqueeStartRef.current;
+        const p = { x: (e.clientX - rect.left - rect.width / 2 - pan.x) / zoom, y: (e.clientY - rect.top - rect.height / 2 - pan.y) / zoom };
+        const x = Math.min(start.x, p.x);
+        const y = Math.min(start.y, p.y);
+        const w = Math.abs(p.x - start.x);
+        const h = Math.abs(p.y - start.y);
+        setMarquee({ x, y, w, h });
+        // frame.x/y are already in "layout" units matching the `zoom`-only
+        // math above, but frame.device.width/height are real device pixels —
+        // FRAME_SCALE is the missing factor that puts them in the same space
+        // (mirrors how the frame itself is rendered: width * FRAME_SCALE * zoom).
+        const hits = frames
+          .filter((f) => !f.hidden && rectsIntersect(x, y, w, h, f.x, f.y, f.device.width * FRAME_SCALE, f.device.height * FRAME_SCALE))
+          .map((f) => f.id);
+        setSelectedFrameIds(hits);
+      }
+    }
+    if (frameDragRef.current) {
+      const d = frameDragRef.current;
+      const rawDx = (e.clientX - d.startClientX) / zoom;
+      const rawDy = (e.clientY - d.startClientY) / zoom;
+      const draggedIds = new Set(d.frames.map((f) => f.id));
+      const others = frames.filter((f) => !f.hidden && !draggedIds.has(f.id)).map(frameGuideRect);
+      const movingBox = unionRect(
+        d.frames
+          .map((f) => {
+            const full = frames.find((ff) => ff.id === f.id);
+            return full ? { x: f.startX + rawDx, y: f.startY + rawDy, w: full.device.width * FRAME_SCALE, h: full.device.height * FRAME_SCALE } : null;
+          })
+          .filter((r): r is GuideRect => !!r),
+      );
+      let dx = rawDx;
+      let dy = rawDy;
+      if (movingBox) {
+        const snap = computeAlignSnap(movingBox, others, DEFAULT_SNAP_PX / zoom);
+        dx = rawDx + snap.dx;
+        dy = rawDy + snap.dy;
+        setFrameDragGuides({ lines: snap.lines, gaps: computeNeighborGaps({ ...movingBox, x: movingBox.x + snap.dx, y: movingBox.y + snap.dy }, others) });
+      }
+      d.frames.forEach((f) => onMoveFrame(f.id, { x: f.startX + dx, y: f.startY + dy }));
+    }
     if (drag.current) {
       const d = drag.current;
-      const dx = (e.clientX - d.startClientX) / scale;
-      const dy = (e.clientY - d.startClientY) / scale;
+      const rawDx = (e.clientX - d.startClientX) / scale;
+      const rawDy = (e.clientY - d.startClientY) / scale;
       if (d.kind === "element") {
+        const el = elements.find((it) => it.id === d.id);
+        const siblings = el && el.kind !== "path" ? (elements.filter((it) => it.id !== d.id && it.frameId === el.frameId && it.kind !== "path") as Exclude<SketchElement, PathElement>[]) : [];
+        let dx = rawDx;
+        let dy = rawDy;
+        if (el && el.kind !== "path") {
+          const movingRect: GuideRect = { x: d.startX + rawDx, y: d.startY + rawDy, w: el.w, h: el.h };
+          const others = siblings.map((s) => ({ x: s.x, y: s.y, w: s.w, h: s.h }));
+          const snap = computeAlignSnap(movingRect, others, DEFAULT_SNAP_PX / scale);
+          dx = rawDx + snap.dx;
+          dy = rawDy + snap.dy;
+          setElementDragGuides({ lines: snap.lines, gaps: computeNeighborGaps({ ...movingRect, x: movingRect.x + snap.dx, y: movingRect.y + snap.dy }, others) });
+          setElementDragFrameId(el.frameId);
+        }
         onUpdateElement(d.id, { x: d.startX + dx, y: d.startY + dy });
       } else {
         let { startX: x, startY: y, startW: w, startH: h } = d;
         if (d.corner === "se") {
-          w = Math.max(10, d.startW + dx);
-          h = Math.max(10, d.startH + dy);
+          w = Math.max(10, d.startW + rawDx);
+          h = Math.max(10, d.startH + rawDy);
         } else if (d.corner === "sw") {
-          w = Math.max(10, d.startW - dx);
-          h = Math.max(10, d.startH + dy);
+          w = Math.max(10, d.startW - rawDx);
+          h = Math.max(10, d.startH + rawDy);
           x = d.startX + (d.startW - w);
         } else if (d.corner === "ne") {
-          w = Math.max(10, d.startW + dx);
-          h = Math.max(10, d.startH - dy);
+          w = Math.max(10, d.startW + rawDx);
+          h = Math.max(10, d.startH - rawDy);
           y = d.startY + (d.startH - h);
         } else {
-          w = Math.max(10, d.startW - dx);
-          h = Math.max(10, d.startH - dy);
+          w = Math.max(10, d.startW - rawDx);
+          h = Math.max(10, d.startH - rawDy);
           x = d.startX + (d.startW - w);
           y = d.startY + (d.startH - h);
         }
@@ -177,6 +372,13 @@ export function SketchCanvasView({
   function handleViewportPointerUp(e: React.PointerEvent) {
     panStart.current = null;
     drag.current = null;
+    frameDragRef.current = null;
+    marqueeStartRef.current = null;
+    setMarquee(null);
+    setFrameDragGuides({ lines: [], gaps: [] });
+    setElementDragGuides({ lines: [], gaps: [] });
+    setElementDragFrameId(null);
+    setIsDragging(false);
     if (connectorDrag) {
       const target = document
         .elementFromPoint(e.clientX, e.clientY)
@@ -202,7 +404,9 @@ export function SketchCanvasView({
   }
 
   function handleFramePointerDown(e: React.PointerEvent, frame: SketchFrame) {
-    if (tool === "hand") return;
+    // Scroll-wheel (middle) button always pans, even over a frame.
+    if (tool === "hand" || e.button === 1) return;
+    if (e.button !== 0) return;
     onSelectFrame(frame.id);
 
     if (tool === "connector") {
@@ -243,6 +447,24 @@ export function SketchCanvasView({
       onPlaceText(frame.id, p.x, p.y);
     } else if (tool === "pointer") {
       onSelectElement(null);
+      const nextIds = e.shiftKey
+        ? selectedFrameIds.includes(frame.id)
+          ? selectedFrameIds.filter((id) => id !== frame.id)
+          : [...selectedFrameIds, frame.id]
+        : selectedFrameIds.includes(frame.id) && selectedFrameIds.length > 1
+          ? selectedFrameIds
+          : [frame.id];
+      setSelectedFrameIds(nextIds);
+      onBeginElementChange();
+      // A click that never turns into a drag just leaves every dragged frame
+      // exactly where it started (delta 0), so this doubles safely as the
+      // plain "select frame" gesture too — no separate handling needed.
+      setIsDragging(true);
+      frameDragRef.current = {
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        frames: frames.filter((f) => nextIds.includes(f.id)).map((f) => ({ id: f.id, startX: f.x, startY: f.y })),
+      };
     }
   }
 
@@ -278,7 +500,12 @@ export function SketchCanvasView({
     if (tool !== "pointer" || el.kind === "path") return;
     e.stopPropagation();
     onSelectElement(el.id);
+    // Element and frame selection are mutually exclusive — otherwise a stale
+    // frame selection from earlier would also get deleted by the same
+    // Delete/Backspace press meant for this element.
+    setSelectedFrameIds([]);
     onBeginElementChange();
+    setIsDragging(true);
     drag.current = {
       kind: "element",
       id: el.id,
@@ -296,6 +523,7 @@ export function SketchCanvasView({
   ) {
     e.stopPropagation();
     onBeginElementChange();
+    setIsDragging(true);
     drag.current = {
       kind: "resize",
       id: el.id,
@@ -308,6 +536,39 @@ export function SketchCanvasView({
       startClientY: e.clientY,
     };
   }
+
+  // Alt-hover measurement: selected can be a frame or an element; hovered
+  // can be either too, in the same or a different frame — both get
+  // converted into the same canvas-space rect via frameGuideRect /
+  // elementCanvasRect so the comparison doesn't care which kind either is.
+  const selectedEntityRects: GuideRect[] = (() => {
+    if (selectedFrameIds.length > 0) return frames.filter((f) => selectedFrameIds.includes(f.id)).map(frameGuideRect);
+    if (selectedElementId) {
+      const el = elements.find((it) => it.id === selectedElementId);
+      const parent = el ? frames.find((f) => f.id === el.frameId) : null;
+      if (el && el.kind !== "path" && parent) return [elementCanvasRect(el, parent)];
+    }
+    return [];
+  })();
+  const hoverEntityRect: GuideRect | null = (() => {
+    if (!hoverEntity) return null;
+    if (hoverEntity.kind === "frame") {
+      const f = frames.find((x) => x.id === hoverEntity.id);
+      return f ? frameGuideRect(f) : null;
+    }
+    const el = elements.find((x) => x.id === hoverEntity.id);
+    const parent = el ? frames.find((f) => f.id === el.frameId) : null;
+    return el && el.kind !== "path" && parent ? elementCanvasRect(el, parent) : null;
+  })();
+  const isHoveringSelection =
+    !!hoverEntity && ((hoverEntity.kind === "frame" && selectedFrameIds.includes(hoverEntity.id)) || (hoverEntity.kind === "element" && selectedElementId === hoverEntity.id));
+  const altGaps: GapSegment[] = (() => {
+    if (!altPressed || isDragging || isHoveringSelection) return [];
+    const selBox = unionRect(selectedEntityRects);
+    if (!selBox || !hoverEntityRect) return [];
+    const res = gapBetween(selBox, hoverEntityRect);
+    return [res.x, res.y].filter((g): g is GapSegment => !!g);
+  })();
 
   return (
     <div
@@ -325,12 +586,13 @@ export function SketchCanvasView({
         className="absolute top-1/2 left-1/2"
         style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}
       >
-        {frames.map((frame) => {
+        {frames.filter((f) => !f.hidden).map((frame) => {
           const w = frame.device.width * scale;
           const h = frame.device.height * scale;
           const frameElements = elements.filter((el) => el.frameId === frame.id);
           const isDrawingHere = drawing?.frameId === frame.id;
           const isVectorHere = vectorPath?.frameId === frame.id;
+          const isFrameSelected = selectedFrameIds.includes(frame.id);
 
           return (
             <div
@@ -338,6 +600,11 @@ export function SketchCanvasView({
               data-frame-id={frame.id}
               className="absolute"
               style={{ left: frame.x * zoom, top: frame.y * zoom, width: w }}
+              onPointerEnter={(e) => {
+                setHoverEntity({ kind: "frame", id: frame.id });
+                if (e.altKey !== altPressed) setAltPressed(e.altKey);
+              }}
+              onPointerLeave={() => setHoverEntity((h) => (h?.kind === "frame" && h.id === frame.id ? null : h))}
             >
               {renamingFrameId === frame.id ? (
                 <input
@@ -387,7 +654,10 @@ export function SketchCanvasView({
                 onPointerMove={(e) => handleFramePointerMove(e, frame)}
                 onPointerUp={handleFramePointerUp}
                 onDoubleClick={(e) => handleFrameDoubleClick(e, frame)}
-                className="relative touch-none overflow-hidden rounded-[10px] border-2 border-white bg-black"
+                className={cn(
+                  "relative touch-none overflow-hidden rounded-[10px] border-2 bg-black",
+                  isFrameSelected ? "border-primary ring-2 ring-primary" : "border-white",
+                )}
                 style={{ width: w, height: h }}
               >
                 {frame.showGrid && (
@@ -420,8 +690,16 @@ export function SketchCanvasView({
                         setEditingTextId(null);
                       }}
                       onDoubleClickText={() => el.kind === "text" && setEditingTextId(el.id)}
+                      onHoverChange={(hovering, altKey) => {
+                        setHoverEntity((prev) => (hovering ? { kind: "element", id: el.id } : prev?.kind === "element" && prev.id === el.id ? null : prev));
+                        if (hovering && altKey !== undefined && altKey !== altPressed) setAltPressed(altKey);
+                      }}
                     />
                   ),
+                )}
+
+                {elementDragFrameId === frame.id && (
+                  <AlignmentGuidesOverlay lines={elementDragGuides.lines} gaps={elementDragGuides.gaps} zoom={scale} />
                 )}
 
                 <svg className="pointer-events-none absolute inset-0" width={w} height={h}>
@@ -472,6 +750,16 @@ export function SketchCanvasView({
             </div>
           );
         })}
+
+        {marquee && (
+          <div
+            className="pointer-events-none absolute border border-primary bg-primary/10"
+            style={{ left: marquee.x * zoom, top: marquee.y * zoom, width: marquee.w * zoom, height: marquee.h * zoom }}
+          />
+        )}
+
+        <AlignmentGuidesOverlay lines={frameDragGuides.lines} gaps={frameDragGuides.gaps} zoom={zoom} />
+        <AlignmentGuidesOverlay lines={[]} gaps={altGaps} zoom={zoom} />
 
         <svg className="pointer-events-none absolute top-0 left-0 h-0 w-0 overflow-visible">
           {connectors.map((c) => {
@@ -530,6 +818,7 @@ function ElementView({
   onStartResize,
   onCommitText,
   onDoubleClickText,
+  onHoverChange,
 }: {
   el: Exclude<SketchElement, PathElement>;
   scale: number;
@@ -540,6 +829,7 @@ function ElementView({
   onStartResize: (e: React.PointerEvent, corner: "nw" | "ne" | "sw" | "se") => void;
   onCommitText: (text: string) => void;
   onDoubleClickText: () => void;
+  onHoverChange?: (hovering: boolean, altKey?: boolean) => void;
 }) {
   const style: React.CSSProperties = {
     left: el.x * scale,
@@ -593,6 +883,8 @@ function ElementView({
         onSelect();
         onPointerDownDrag(e);
       }}
+      onPointerEnter={(e) => onHoverChange?.(true, e.altKey)}
+      onPointerLeave={() => onHoverChange?.(false)}
       className={cn(
         "absolute cursor-move border border-dashed border-white/60",
         el.kind === "box" && el.type === "button" && "flex items-center justify-center rounded-full",

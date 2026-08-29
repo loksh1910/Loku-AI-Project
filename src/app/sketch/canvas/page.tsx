@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Undo2, Redo2, Share2, Sparkles, HelpCircle, ExternalLink } from "lucide-react";
 import { SketchLeftRail } from "@/components/sketch/sketch-left-rail";
@@ -44,6 +44,7 @@ import {
   DEFAULT_TEXT_STYLE,
   type BasicElementType,
   type BottomTool,
+  type PathElement,
   type RightPanelKey,
   type ShapeType,
   type SketchConnector,
@@ -113,6 +114,7 @@ function SketchCanvasPage() {
   const [bottomTool, setBottomTool] = useState<BottomTool>("pointer");
   const [armedShape, setArmedShape] = useState<ShapeType | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const elementClipboardRef = useRef<Exclude<SketchElement, PathElement> | null>(null);
   const [activeFrameId, setActiveFrameId] = useState<string | null>(null);
   const [stroke, setStroke] = useState(DEFAULT_STROKE);
   const [textStyle, setTextStyle] = useState(DEFAULT_TEXT_STYLE);
@@ -531,6 +533,10 @@ function SketchCanvasPage() {
     setFrames((prev) => prev.map((f) => (f.id === id ? { ...f, name } : f)));
   }
 
+  function toggleFrameHidden(id: string) {
+    setFrames((prev) => prev.map((f) => (f.id === id ? { ...f, hidden: !f.hidden } : f)));
+  }
+
   function addBasic(type: BasicElementType) {
     if (!activeFrameId) {
       toast("Select or create a screen first.");
@@ -647,6 +653,27 @@ function SketchCanvasPage() {
     );
   }
 
+  // Mirrors updateElement/beginElementChange above — dragging a frame (or a
+  // multi-selected group of them) fires this every pointermove via plain
+  // setFrames, with beginElementChange snapshotting once at drag-start so the
+  // whole drag is a single undo step rather than one per pixel.
+  function updateFrame(id: string, patch: Partial<{ x: number; y: number }>) {
+    setFrames((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+  }
+
+  function deleteFrames(ids: string[]) {
+    const idSet = new Set(ids);
+    commit((prev) => ({
+      frames: prev.frames.filter((f) => !idSet.has(f.id)),
+      elements: prev.elements.filter((el) => !idSet.has(el.frameId)),
+    }));
+    setConnectors((prev) => prev.filter((c) => !idSet.has(c.fromFrameId) && !idSet.has(c.toFrameId)));
+  }
+
+  function pasteFrames(newFrames: SketchFrame[], newElements: SketchElement[]) {
+    commit((prev) => ({ frames: [...prev.frames, ...newFrames], elements: [...prev.elements, ...newElements] }));
+  }
+
   function updateSelectedElement(patch: Partial<{ x: number; y: number; w: number; h: number; rotation: number }>) {
     if (!selectedElementId) return;
     commit((prev) => ({
@@ -683,6 +710,23 @@ function SketchCanvasPage() {
         return;
       }
 
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+        if (isEditable || !selectedElementId) return;
+        e.preventDefault();
+        const el = elements.find((e2) => e2.id === selectedElementId);
+        if (el && el.kind !== "path") elementClipboardRef.current = el;
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+        if (isEditable || !elementClipboardRef.current) return;
+        e.preventDefault();
+        const clip = elementClipboardRef.current;
+        const id = `${clip.kind}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        commit((prev) => ({ frames: prev.frames, elements: [...prev.elements, { ...clip, id, x: clip.x + 30, y: clip.y + 30 }] }));
+        setSelectedElementId(id);
+        return;
+      }
+
       if (e.key !== "Delete" && e.key !== "Backspace") return;
       if (isEditable) return;
       if (!selectedElementId) return;
@@ -695,7 +739,7 @@ function SketchCanvasPage() {
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [selectedElementId, commit, undo, redo]);
+  }, [selectedElementId, elements, commit, undo, redo]);
 
   function updateFrameLayout(patch: Partial<SketchFrame["autoLayout"] & { showGrid: boolean }>) {
     if (!activeFrameId) return;
@@ -1020,6 +1064,12 @@ function SketchCanvasPage() {
         {viewMode === "flow" ? (
           <div className="relative flex flex-1 overflow-hidden">
             <UserFlowView
+              // Sitemap and User Flow share this exact component instance at
+              // this tree position (only the props differ) — without a key
+              // tied to which one is active, switching between them doesn't
+              // remount it, so whatever tool was picked (shapes/text/pen/etc.)
+              // silently carries over instead of resetting to Pointer.
+              key={flowKind ?? "userflow"}
               nodes={flowKind === "sitemap" ? sitemapGraph.nodes : flowGraph.nodes}
               edges={flowKind === "sitemap" ? sitemapGraph.edges : flowGraph.edges}
               onNodesChange={(nodes) =>
@@ -1085,6 +1135,11 @@ function SketchCanvasPage() {
           />
         ) : viewMode === "canvas" && canvasPipelineTab === "userflow" ? (
           <UserFlowView
+            // Same component instance as the Sitemap tab below at this tree
+            // position — a key tied to which tab is active forces a remount
+            // on switch, so a picked tool always resets to Pointer instead
+            // of carrying over from the other tab.
+            key="userflow"
             nodes={flowGraph.nodes}
             edges={flowGraph.edges}
             onNodesChange={(nodes) => setFlowGraph((g) => ({ ...g, nodes }))}
@@ -1095,6 +1150,7 @@ function SketchCanvasPage() {
           />
         ) : viewMode === "canvas" && canvasPipelineTab === "sitemap" ? (
           <UserFlowView
+            key="sitemap"
             nodes={sitemapGraph.nodes}
             edges={sitemapGraph.edges}
             onNodesChange={(nodes) => setSitemapGraph((g) => ({ ...g, nodes }))}
@@ -1138,6 +1194,11 @@ function SketchCanvasPage() {
           <CodeModeView />
         ) : viewMode === "canvas" ? (
           <CanvasModeView
+            // AI mode/Wireframe/Prototype all share this one instance at this
+            // tree position — keying on the tab forces a remount on switch,
+            // so a picked tool (hand/select/etc.) always resets to Pointer
+            // instead of carrying over from whichever tab was active before.
+            key={canvasPipelineTab}
             generationPrompt={generationPrompt}
             panel={canvasPanel}
             onPanelChange={setCanvasPanel}
@@ -1200,6 +1261,9 @@ function SketchCanvasPage() {
             onUpdateElement={updateElement}
             onBeginElementChange={beginElementChange}
             onRenameFrame={renameFrame}
+            onMoveFrame={updateFrame}
+            onDeleteFrames={deleteFrames}
+            onPasteFrames={pasteFrames}
             onCreateConnector={createConnector}
             onZoomChange={(z) => setZoomPct(Math.round(z * 100))}
           />
@@ -1249,6 +1313,7 @@ function SketchCanvasPage() {
               onAddFrame={addFrame}
               onClose={() => setScreensOpen(false)}
               onRenameFrame={renameFrame}
+              onToggleHidden={toggleFrameHidden}
             />
           )}
 

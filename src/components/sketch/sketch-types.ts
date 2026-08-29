@@ -8,6 +8,10 @@ export type SketchFrame = {
   y: number;
   autoLayout: { enabled: boolean; spacing: number; padding: number };
   showGrid: boolean;
+  /** Toggled from the Screens panel's eye icon — hidden frames (and every
+   * element inside them) are skipped from canvas rendering entirely, same as
+   * a hidden layer in Figma. Undefined/false = visible. */
+  hidden?: boolean;
 };
 
 export type BasicElementType = "container" | "textline" | "button" | "image" | "divider";

@@ -9,7 +9,7 @@ import { VariationsPanel } from "@/components/present/variations-panel";
 import { PresentPromptBar } from "@/components/present/present-prompt-bar";
 import { DeviceFrame, type DeviceMode } from "@/components/present/device-frame";
 import { VARIATION_THEMES, type VariationId } from "@/components/present/health-app/theme";
-import { HEALTH_SCREENS, type HealthScreenId } from "@/components/present/health-app/screens";
+import { HEALTH_SCREENS, type HealthScreenId, type TextOverrides } from "@/components/present/health-app/screens";
 
 const ALL_VARIATIONS: VariationId[] = ["bold", "playful", "minimal"];
 
@@ -48,6 +48,15 @@ export function PresentModeView({
   const [compareMode, setCompareMode] = useState(false);
   const [compareSelection, setCompareSelection] = useState<VariationId[]>(variationIds.slice(0, 2));
   const [taggedElement, setTaggedElement] = useState<string | null>(null);
+  // Text edited via the Edit tool (pencil icon) — ids are already namespaced
+  // per screen (e.g. "splash.welcome"), so one flat map safely covers every
+  // screen without needing a nested per-screen structure.
+  const [textOverrides, setTextOverrides] = useState<TextOverrides>({});
+  const editable = tool === "edit";
+
+  function handleTextChange(id: string, text: string) {
+    setTextOverrides((prev) => (prev[id] === text ? prev : { ...prev, [id]: text }));
+  }
 
   const ActiveScreen = HEALTH_SCREENS[activeScreen].Component;
 
@@ -69,7 +78,13 @@ export function PresentModeView({
             {compareSelection.map((id) => (
               <DeviceFrame key={id} mode={deviceMode}>
                 <div onClick={handleScreenClick(id)} className="h-full w-full">
-                  <ActiveScreen theme={VARIATION_THEMES[id]} onNavigate={interactive ? onNavigate : () => {}} />
+                  <ActiveScreen
+                    theme={VARIATION_THEMES[id]}
+                    onNavigate={interactive ? onNavigate : () => {}}
+                    editable={editable}
+                    overrides={textOverrides}
+                    onTextChange={handleTextChange}
+                  />
                 </div>
               </DeviceFrame>
             ))}
@@ -77,7 +92,13 @@ export function PresentModeView({
         ) : (
           <DeviceFrame mode={deviceMode}>
             <div onClick={handleScreenClick(selectedVariation)} className="h-full w-full">
-              <ActiveScreen theme={VARIATION_THEMES[selectedVariation]} onNavigate={interactive ? onNavigate : () => {}} />
+              <ActiveScreen
+                theme={VARIATION_THEMES[selectedVariation]}
+                onNavigate={interactive ? onNavigate : () => {}}
+                editable={editable}
+                overrides={textOverrides}
+                onTextChange={handleTextChange}
+              />
             </div>
           </DeviceFrame>
         )}

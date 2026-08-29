@@ -18,6 +18,7 @@ import {
   type FlowNodeShape,
 } from "@/components/canvas/flow-types";
 import { Tip } from "@/components/ui/tip";
+import { rectsIntersect } from "@/lib/utils";
 
 const VARIATION_IDS: VariationId[] = ["bold", "playful", "minimal"];
 
@@ -26,8 +27,9 @@ const MAX_ZOOM = 2.5;
 const WIRE_PAD = 4000;
 
 type Selection = { kind: "node"; id: string } | { kind: "edge"; id: string } | null;
-type DragState = { id: string; startX: number; startY: number; startClientX: number; startClientY: number };
+type DragState = { startClientX: number; startClientY: number; nodes: { id: string; startX: number; startY: number }[] };
 type ConnectorDrag = { fromId: string; startX: number; startY: number; currentX: number; currentY: number };
+type MarqueeRect = { x: number; y: number; w: number; h: number };
 
 function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
@@ -63,6 +65,13 @@ export function UserFlowView({
 
   const [tool, setTool] = useState<FlowTool>("pointer");
   const [selection, setSelection] = useState<Selection>(null);
+  // Node multi-select (marquee drag + shift-click) — `selection` above stays
+  // the single most-recently-touched node/edge, driving the property edit
+  // toolbar; `selectedIds` is the full set that moves/deletes together.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [marquee, setMarquee] = useState<MarqueeRect | null>(null);
+  const marqueeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const nodeClipboardRef = useRef<FlowNode[]>([]);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [connectorDrag, setConnectorDrag] = useState<ConnectorDrag | null>(null);
@@ -136,29 +145,71 @@ export function UserFlowView({
         setConnectorDrag(null);
         return;
       }
-      if ((e.key === "Delete" || e.key === "Backspace") && selection) {
-        e.preventDefault();
-        if (selection.kind === "node") {
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedIds.length > 0) {
+          e.preventDefault();
+          const idSet = new Set(selectedIds);
           onCommit((prev) => ({
-            nodes: prev.nodes.filter((n) => n.id !== selection.id),
-            edges: prev.edges.filter((ed) => ed.fromId !== selection.id && ed.toId !== selection.id),
+            nodes: prev.nodes.filter((n) => !idSet.has(n.id)),
+            edges: prev.edges.filter((ed) => !idSet.has(ed.fromId) && !idSet.has(ed.toId)),
           }));
-        } else {
-          onCommit((prev) => ({ nodes: prev.nodes, edges: prev.edges.filter((ed) => ed.id !== selection.id) }));
+          setSelectedIds([]);
+          setSelection(null);
+        } else if (selection) {
+          e.preventDefault();
+          if (selection.kind === "node") {
+            onCommit((prev) => ({
+              nodes: prev.nodes.filter((n) => n.id !== selection.id),
+              edges: prev.edges.filter((ed) => ed.fromId !== selection.id && ed.toId !== selection.id),
+            }));
+          } else {
+            onCommit((prev) => ({ nodes: prev.nodes, edges: prev.edges.filter((ed) => ed.id !== selection.id) }));
+          }
+          setSelection(null);
         }
-        setSelection(null);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+        const ids = selectedIds.length > 0 ? selectedIds : selection?.kind === "node" ? [selection.id] : [];
+        if (ids.length === 0) return;
+        e.preventDefault();
+        nodeClipboardRef.current = nodes.filter((n) => ids.includes(n.id));
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+        if (nodeClipboardRef.current.length === 0) return;
+        e.preventDefault();
+        const pasted = nodeClipboardRef.current.map((n) => ({ ...n, id: uid("dup"), x: n.x + 30, y: n.y + 30 }));
+        onCommit((prev) => ({ nodes: [...prev.nodes, ...pasted], edges: prev.edges }));
+        const pastedIds = pasted.map((n) => n.id);
+        setSelectedIds(pastedIds);
+        setSelection(pastedIds.length === 1 ? { kind: "node", id: pastedIds[0] } : null);
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [selection, onUndo, onRedo, onCommit]);
+  }, [selection, selectedIds, nodes, onUndo, onRedo, onCommit]);
 
   function handleViewportPointerDown(e: React.PointerEvent) {
     if (tool === "hand" || e.button === 1) {
       panStart.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
       return;
     }
-    if (e.target === e.currentTarget) setSelection(null);
+    if (e.button !== 0) return;
+    if (e.target === e.currentTarget) {
+      if (!e.shiftKey) {
+        setSelection(null);
+        setSelectedIds([]);
+      }
+      if (tool === "pointer") {
+        const rect = viewportRef.current?.getBoundingClientRect();
+        if (rect) {
+          const p = { x: (e.clientX - rect.left - rect.width / 2 - pan.x) / zoom, y: (e.clientY - rect.top - rect.height / 2 - pan.y) / zoom };
+          marqueeStartRef.current = p;
+          setMarquee({ x: p.x, y: p.y, w: 0, h: 0 });
+        }
+      }
+    }
   }
 
   function handleViewportPointerMove(e: React.PointerEvent) {
@@ -167,11 +218,27 @@ export function UserFlowView({
       const dy = e.clientY - panStart.current.y;
       setPan({ x: panStart.current.px + dx, y: panStart.current.py + dy });
     }
+    if (marqueeStartRef.current) {
+      const rect = viewportRef.current?.getBoundingClientRect();
+      if (rect) {
+        const start = marqueeStartRef.current;
+        const p = { x: (e.clientX - rect.left - rect.width / 2 - pan.x) / zoom, y: (e.clientY - rect.top - rect.height / 2 - pan.y) / zoom };
+        const x = Math.min(start.x, p.x);
+        const y = Math.min(start.y, p.y);
+        const w = Math.abs(p.x - start.x);
+        const h = Math.abs(p.y - start.y);
+        setMarquee({ x, y, w, h });
+        const hits = nodes.filter((n) => rectsIntersect(x, y, w, h, n.x, n.y, n.w, n.h)).map((n) => n.id);
+        setSelectedIds(hits);
+        setSelection(hits.length === 1 ? { kind: "node", id: hits[0] } : null);
+      }
+    }
     if (dragRef.current) {
       const d = dragRef.current;
       const dx = (e.clientX - d.startClientX) / zoom;
       const dy = (e.clientY - d.startClientY) / zoom;
-      onNodesChange(nodes.map((n) => (n.id === d.id ? { ...n, x: d.startX + dx, y: d.startY + dy } : n)));
+      const byId = new Map(d.nodes.map((n) => [n.id, n]));
+      onNodesChange(nodes.map((n) => (byId.has(n.id) ? { ...n, x: byId.get(n.id)!.startX + dx, y: byId.get(n.id)!.startY + dy } : n)));
     }
     if (connectorDrag && viewportRef.current) {
       const rect = viewportRef.current.getBoundingClientRect();
@@ -188,6 +255,8 @@ export function UserFlowView({
   function handleViewportPointerUp(e: React.PointerEvent) {
     panStart.current = null;
     dragRef.current = null;
+    marqueeStartRef.current = null;
+    setMarquee(null);
     if (connectorDrag) {
       const target = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-node-id]") as HTMLElement | null;
       const toId = target?.dataset.nodeId;
@@ -202,7 +271,9 @@ export function UserFlowView({
   }
 
   function handleNodePointerDown(e: React.PointerEvent, node: FlowNode) {
-    if (tool === "hand") return;
+    // Scroll-wheel (middle) button always pans, even over a node.
+    if (tool === "hand" || e.button === 1) return;
+    if (e.button !== 0) return;
     e.stopPropagation();
 
     if (tool === "connector") {
@@ -222,9 +293,21 @@ export function UserFlowView({
       return;
     }
 
+    const nextIds = e.shiftKey
+      ? selectedIds.includes(node.id)
+        ? selectedIds.filter((id) => id !== node.id)
+        : [...selectedIds, node.id]
+      : selectedIds.includes(node.id) && selectedIds.length > 1
+        ? selectedIds
+        : [node.id];
+    setSelectedIds(nextIds);
     setSelection({ kind: "node", id: node.id });
     onBeginChange();
-    dragRef.current = { id: node.id, startX: node.x, startY: node.y, startClientX: e.clientX, startClientY: e.clientY };
+    dragRef.current = {
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      nodes: nodes.filter((n) => nextIds.includes(n.id)).map((n) => ({ id: n.id, startX: n.x, startY: n.y })),
+    };
   }
 
   function handleCanvasClick(e: React.MouseEvent) {
@@ -370,6 +453,7 @@ export function UserFlowView({
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelection({ kind: "edge", id: edge.id });
+                      setSelectedIds([]);
                     }}
                   />
                   {edge.label && (
@@ -402,7 +486,7 @@ export function UserFlowView({
           </svg>
 
           {nodes.map((node) => {
-            const isSelected = selection?.kind === "node" && selection.id === node.id;
+            const isSelected = selectedIds.includes(node.id);
             const isMatched = matchedIds.has(node.id);
             const shapeStyle: React.CSSProperties = {
               width: node.w,
@@ -478,6 +562,13 @@ export function UserFlowView({
               </div>
             );
           })}
+
+          {marquee && (
+            <div
+              className="pointer-events-none absolute border border-primary bg-primary/10"
+              style={{ left: marquee.x * zoom, top: marquee.y * zoom, width: marquee.w * zoom, height: marquee.h * zoom }}
+            />
+          )}
         </div>
       </div>
 
@@ -530,7 +621,13 @@ export function UserFlowView({
         />
       )}
 
-      <PresentPromptBar taggedElement={selectedNode?.label ?? selectedEdge?.label ?? null} onClearTag={() => setSelection(null)} />
+      <PresentPromptBar
+        taggedElement={selectedIds.length > 1 ? `${selectedIds.length} nodes selected` : (selectedNode?.label ?? selectedEdge?.label ?? null)}
+        onClearTag={() => {
+          setSelection(null);
+          setSelectedIds([]);
+        }}
+      />
 
       <div className="absolute right-4 bottom-4 z-30 flex items-center gap-2 text-muted-foreground">
         <span className="rounded-full border border-border/60 bg-card px-2.5 py-1 text-xs">{zoomPct}%</span>

@@ -140,7 +140,7 @@ export function ExportMenu({ screens }: { screens: ExportScreen[] }) {
           <div
             ref={panelRef}
             style={{ position: "fixed", top: coords.top, right: coords.right }}
-            className="z-[9999] w-60 overflow-hidden rounded-2xl border border-border/60 bg-[#18181a] shadow-2xl"
+            className="z-[9999] w-60 overflow-hidden rounded-2xl border border-border/60 bg-popover shadow-2xl"
           >
             <div className="flex items-center justify-between px-4 py-3">
               <p className="text-sm font-semibold text-foreground">Export</p>

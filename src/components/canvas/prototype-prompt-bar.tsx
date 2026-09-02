@@ -67,7 +67,7 @@ export function PrototypePromptBar({
         </button>
       </Tip>
 
-      <div className="rounded-3xl bg-[#18181a] p-4">
+      <div className="rounded-3xl bg-popover p-4">
         {taggedElement && (
           <div className="mb-2 flex w-fit items-center gap-1.5 rounded-full bg-primary/15 px-2.5 py-1 text-[10px] text-primary">
             {taggedElement}
@@ -82,15 +82,15 @@ export function PrototypePromptBar({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder={placeholder}
-          className="w-full bg-transparent text-sm text-white/70 outline-none placeholder:text-white/70"
+          className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
         />
         <div className="mt-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-white/70">
+          <div className="flex items-center gap-2 text-muted-foreground">
             <span className="text-xs">Apply on:</span>
             <div className="relative">
               <button
                 onClick={() => setApplyOpen((v) => !v)}
-                className="flex items-center gap-1 rounded-full border border-white/30 px-2.5 py-1 text-xs font-medium text-white"
+                className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-foreground"
               >
                 {current.label}
                 <ChevronDown className="h-3 w-3" />
@@ -115,14 +115,14 @@ export function PrototypePromptBar({
                 </div>
               )}
             </div>
-            <span className="text-xs whitespace-nowrap text-white/50">
+            <span className="text-xs whitespace-nowrap text-muted-foreground/70">
               Selected {current.noun} ({count})
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <ModelDropdown variant="dark" />
+            <ModelDropdown />
             <Tip label="Voice input">
-              <button aria-label="Voice input" className="text-white/70">
+              <button aria-label="Voice input" className="text-muted-foreground">
                 <Mic className="h-4 w-4" />
               </button>
             </Tip>
@@ -142,7 +142,7 @@ export function PrototypePromptBar({
         {SUGGESTIONS.map((s) => (
           <button
             key={s}
-            className="rounded-full border border-white/20 px-4 py-1.5 text-xs font-medium text-white/60 hover:border-white/40 hover:text-white/80"
+            className="rounded-full border border-border px-4 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary/40 hover:text-foreground"
           >
             {s}
           </button>

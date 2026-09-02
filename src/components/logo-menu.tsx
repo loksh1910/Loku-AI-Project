@@ -114,7 +114,7 @@ export function LogoMenu() {
           <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         </button>
         {submenu === item.key && (
-          <div className="absolute top-0 left-full ml-2 w-52 rounded-xl border border-border/60 bg-[#1a191f] p-1.5 shadow-2xl">
+          <div className="absolute top-0 left-full ml-2 w-52 rounded-xl border border-border/60 bg-popover p-1.5 shadow-2xl">
             {SUBMENUS[item.key].map((sub) => (
               <button
                 key={sub.label}
@@ -154,7 +154,7 @@ export function LogoMenu() {
             // inside this panel and intentionally extend past its right edge
             // (left-full) — clipping would hide every one of them, not just
             // round the corners this was meant for.
-            className="z-[9999] w-56 rounded-2xl border border-border/60 bg-[#18181a] py-1.5 shadow-2xl"
+            className="z-[9999] w-56 rounded-2xl border border-border/60 bg-popover py-1.5 shadow-2xl"
           >
             <button
               onClick={() => {
@@ -200,7 +200,7 @@ export function LogoMenu() {
                 <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               </button>
               {submenu === "credits" && (
-                <div className="absolute top-0 left-full ml-2 w-52 rounded-xl border border-border/60 bg-[#1a191f] p-3 shadow-2xl">
+                <div className="absolute top-0 left-full ml-2 w-52 rounded-xl border border-border/60 bg-popover p-3 shadow-2xl">
                   <p className="text-xs font-semibold">128 AI credits left</p>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     Credits refill monthly on the free plan.

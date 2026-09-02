@@ -63,15 +63,15 @@
 :root {
   --background: #ffffff;
   --foreground: #111111;
-  --card: #ffffff;
+  --card: #f7f7f9;
   --card-foreground: #111111;
-  --popover: #ffffff;
+  --popover: #f7f7f9;
   --popover-foreground: #111111;
   --primary: #6c5ce7;
   --primary-foreground: #ffffff;
-  --secondary: #f5f6fa;
+  --secondary: #edeef3;
   --secondary-foreground: #111111;
-  --muted: #f5f6fa;
+  --muted: #edeef3;
   --muted-foreground: #6b7280;
   --accent: #8e51ff;
   --accent-foreground: #ffffff;

@@ -74,7 +74,7 @@ export function PresentModeView({
           the canvas rather than pushing the centered content off-axis. */}
       <div className="flex h-full items-center justify-center">
         {compareMode ? (
-          <div className="flex items-center gap-10 rounded-[30px] bg-[#18181a] p-8">
+          <div className="flex items-center gap-10 rounded-[30px] bg-card p-8">
             {compareSelection.map((id) => (
               <DeviceFrame key={id} mode={deviceMode}>
                 <div onClick={handleScreenClick(id)} className="h-full w-full">

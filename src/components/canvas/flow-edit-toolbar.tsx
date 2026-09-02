@@ -148,7 +148,7 @@ export function FlowEditToolbar({
 
         <div className="relative">
           <IconButton label="Color" active={popover === "color"} onClick={() => toggle("color")}>
-            <span className="h-3.5 w-3.5 rounded-full border border-white/30" style={{ background: colorValue }} />
+            <span className="h-3.5 w-3.5 rounded-full border border-border" style={{ background: colorValue }} />
           </IconButton>
           {popover === "color" && (
             <Flyout>
@@ -176,7 +176,7 @@ export function FlowEditToolbar({
                       onClick={() =>
                         onChange(colorTarget === "fill" ? { fill: c } : colorTarget === "text" ? { textColor: c } : { stroke: c })
                       }
-                      className="h-5 w-5 rounded-full border border-white/20"
+                      className="h-5 w-5 rounded-full border border-border"
                       style={{ background: c }}
                     />
                   ))}
@@ -292,13 +292,13 @@ export function FlowEditToolbar({
       </div>
 
       {aiOpen && (
-        <div className="w-[260px] rounded-2xl bg-[#18181a] p-2.5 shadow-xl">
+        <div className="w-[260px] rounded-2xl bg-popover p-2.5 shadow-xl">
           <div className="flex items-center gap-2">
             <input
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Describe the change you want to make..."
-              className="w-full bg-transparent text-xs text-white/80 outline-none placeholder:text-white/50"
+              className="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
             />
             <Tip label="Submit">
               <button

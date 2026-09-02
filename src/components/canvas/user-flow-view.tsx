@@ -18,6 +18,7 @@ import {
   type FlowNodeShape,
 } from "@/components/canvas/flow-types";
 import { Tip } from "@/components/ui/tip";
+import { CanvasBackgroundPicker } from "@/components/canvas/canvas-background-picker";
 import { rectsIntersect } from "@/lib/utils";
 
 const VARIATION_IDS: VariationId[] = ["bold", "playful", "minimal"];
@@ -58,6 +59,9 @@ export function UserFlowView({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [zoomPct, setZoomPct] = useState(100);
+  // null = follow the app's own light/dark background — a manual override
+  // lets a white-themed screen stay visible against a light canvas, etc.
+  const [canvasBg, setCanvasBg] = useState<string | null>(null);
   const panStart = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
   const zoomRef = useRef(zoom);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -401,7 +405,7 @@ export function UserFlowView({
       : null;
 
   return (
-    <div className="relative flex-1 overflow-hidden bg-background">
+    <div className="relative flex-1 overflow-hidden bg-background" style={canvasBg ? { background: canvasBg } : undefined}>
       <div
         ref={viewportRef}
         className={cn("absolute inset-0 select-none", tool === "hand" ? "cursor-grab active:cursor-grabbing" : tool === "text" ? "cursor-text" : "")}
@@ -630,6 +634,7 @@ export function UserFlowView({
       />
 
       <div className="absolute right-4 bottom-4 z-30 flex items-center gap-2 text-muted-foreground">
+        <CanvasBackgroundPicker value={canvasBg} onChange={setCanvasBg} />
         <span className="rounded-full border border-border/60 bg-card px-2.5 py-1 text-xs">{zoomPct}%</span>
         <Tip label="Help">
           <button className="rounded-full border border-border/60 bg-card p-1.5 hover:text-foreground" aria-label="Help">

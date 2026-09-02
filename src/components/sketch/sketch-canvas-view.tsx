@@ -68,6 +68,7 @@ export function SketchCanvasView({
   onPasteFrames,
   onCreateConnector,
   onZoomChange,
+  canvasBg,
 }: {
   frames: SketchFrame[];
   elements: SketchElement[];
@@ -90,6 +91,8 @@ export function SketchCanvasView({
   onPasteFrames: (frames: SketchFrame[], elements: SketchElement[]) => void;
   onCreateConnector: (fromFrameId: string, toFrameId: string, anchor: { x: number; y: number }) => void;
   onZoomChange: (zoom: number) => void;
+  /** null = follow the app's own light/dark background. */
+  canvasBg?: string | null;
 }) {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -577,6 +580,7 @@ export function SketchCanvasView({
         "relative h-full w-full overflow-hidden bg-background select-none",
         tool === "hand" ? "cursor-grab active:cursor-grabbing" : "",
       )}
+      style={canvasBg ? { background: canvasBg } : undefined}
       onPointerDown={handleViewportPointerDown}
       onPointerMove={handleViewportPointerMove}
       onPointerUp={handleViewportPointerUp}

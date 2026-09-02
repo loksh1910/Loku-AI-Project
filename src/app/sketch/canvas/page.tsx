@@ -36,6 +36,7 @@ import { SCREEN_ORDER, SCREEN_SPECS } from "@/components/canvas/code-types";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tip } from "@/components/ui/tip";
+import { CanvasBackgroundPicker } from "@/components/canvas/canvas-background-picker";
 import { useAppState } from "@/components/providers/app-state-provider";
 import type { SketchDevice } from "@/lib/sketch-devices";
 import { FRAME_SCALE } from "@/components/sketch/sketch-constants";
@@ -119,6 +120,11 @@ function SketchCanvasPage() {
   const [stroke, setStroke] = useState(DEFAULT_STROKE);
   const [textStyle, setTextStyle] = useState(DEFAULT_TEXT_STYLE);
   const [zoomPct, setZoomPct] = useState(100);
+  // null = follow the app's own light/dark background — a manual override
+  // lets a white-themed screen stay visible against a light canvas, etc.
+  // Sketch mode's own canvas only (Canvas mode's pipeline tabs each own
+  // their own independent override, same as their independent zoom state).
+  const [sketchCanvasBg, setSketchCanvasBg] = useState<string | null>(null);
   const [activeConnector, setActiveConnector] = useState<{
     connector: SketchConnector;
     x: number;
@@ -1266,6 +1272,7 @@ function SketchCanvasPage() {
             onPasteFrames={pasteFrames}
             onCreateConnector={createConnector}
             onZoomChange={(z) => setZoomPct(Math.round(z * 100))}
+            canvasBg={sketchCanvasBg}
           />
 
           {flowStage === "building" && (
@@ -1337,6 +1344,7 @@ function SketchCanvasPage() {
           />
 
           <div className="absolute right-4 bottom-4 z-30 flex items-center gap-2 text-muted-foreground">
+            <CanvasBackgroundPicker value={sketchCanvasBg} onChange={setSketchCanvasBg} />
             <span className="rounded-full border border-border/60 bg-card px-2.5 py-1 text-xs">
               {zoomPct}%
             </span>

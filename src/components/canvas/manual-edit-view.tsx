@@ -25,6 +25,7 @@ import { Tip } from "@/components/ui/tip";
 import { rectsIntersect } from "@/lib/utils";
 import { computeAlignSnap, computeNeighborGaps, unionRect, DEFAULT_SNAP_PX, type AlignLine, type GapSegment, type GuideRect } from "@/lib/alignment-guides";
 import { AlignmentGuidesOverlay } from "@/components/canvas/alignment-guides-overlay";
+import { CanvasBackgroundPicker } from "@/components/canvas/canvas-background-picker";
 
 const MIN_ZOOM = 0.3;
 const MAX_ZOOM = 2.5;
@@ -102,6 +103,9 @@ export function ManualEditView({
   const frameResizeRef = useRef<ResizeState | null>(null);
 
   const [tool, setTool] = useState<ManualTool>("pointer");
+  // null = follow the app's own light/dark background — a manual override
+  // lets a white-themed screen stay visible against a light canvas, etc.
+  const [canvasBg, setCanvasBg] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -675,7 +679,7 @@ export function ManualEditView({
       : null;
 
   return (
-    <div className="relative flex-1 overflow-hidden bg-background">
+    <div className="relative flex-1 overflow-hidden bg-background" style={canvasBg ? { background: canvasBg } : undefined}>
       <div
         ref={viewportRef}
         className={cn("absolute inset-0 select-none", tool === "hand" ? "cursor-grab active:cursor-grabbing" : tool === "frame" ? "cursor-crosshair" : "")}
@@ -855,6 +859,7 @@ export function ManualEditView({
       />
 
       <div className="absolute right-4 bottom-4 z-30 flex items-center gap-2 text-muted-foreground">
+        <CanvasBackgroundPicker value={canvasBg} onChange={setCanvasBg} />
         <span className="rounded-full border border-border/60 bg-card px-2.5 py-1 text-xs">{zoomPct}%</span>
         <Tip label="Help">
           <button className="rounded-full border border-border/60 bg-card p-1.5 hover:text-foreground" aria-label="Help">

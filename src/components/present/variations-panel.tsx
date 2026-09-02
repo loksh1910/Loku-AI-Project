@@ -46,7 +46,7 @@ export function VariationsPanel({
         <button
           onClick={() => (compareMode ? onCompareToggle() : setPickerOpen((v) => !v))}
           className={cn(
-            "flex h-9 w-full items-center justify-center gap-2 rounded-2xl bg-[#18181a] text-xs font-medium text-white",
+            "flex h-9 w-full items-center justify-center gap-2 rounded-2xl bg-card text-xs font-medium text-foreground",
             compareMode && "border border-primary bg-primary/10",
           )}
         >
@@ -55,10 +55,10 @@ export function VariationsPanel({
         </button>
         {pickerOpen && (
           <div className="absolute top-full right-0 z-40 mt-2 w-[180px] rounded-2xl border border-border/60 bg-popover p-3">
-            <p className="mb-2 text-xs font-medium text-white">Compare variations</p>
+            <p className="mb-2 text-xs font-medium text-foreground">Compare variations</p>
             <div className="space-y-1.5">
               {variationIds.map((id) => (
-                <label key={id} className="flex cursor-pointer items-center gap-2 rounded-lg px-1.5 py-1 text-xs text-white/80 hover:bg-secondary">
+                <label key={id} className="flex cursor-pointer items-center gap-2 rounded-lg px-1.5 py-1 text-xs text-muted-foreground hover:bg-secondary">
                   <input
                     type="checkbox"
                     checked={compareSelection.includes(id)}
@@ -94,17 +94,17 @@ export function VariationsPanel({
             onClick={() => onSelect(id)}
             onKeyDown={(e) => e.key === "Enter" && onSelect(id)}
             className={cn(
-              "flex h-[153px] w-full cursor-pointer flex-col items-center gap-2 rounded-2xl bg-[#18181a] pt-3",
+              "flex h-[153px] w-full cursor-pointer flex-col items-center gap-2 rounded-2xl bg-card pt-3",
               isSelected && "border border-primary bg-primary/10",
             )}
           >
-            <p className={cn("text-[10px] font-medium", isSelected ? "text-white" : "text-white/60")}>Variation {i + 1}</p>
-            <div className="pointer-events-none h-[85px] w-[55px] overflow-hidden rounded-[10px] border border-white/20">
+            <p className={cn("text-[10px] font-medium", isSelected ? "text-foreground" : "text-muted-foreground")}>Variation {i + 1}</p>
+            <div className="pointer-events-none h-[85px] w-[55px] overflow-hidden rounded-[10px] border border-border">
               <div className="h-full w-full origin-top-left scale-[0.23]" style={{ width: 241, height: 370 }}>
                 <SplashScreen theme={theme} onNavigate={() => {}} />
               </div>
             </div>
-            <p className={cn("text-xs font-medium", isSelected ? "text-primary" : "text-white/60")}>{theme.label}</p>
+            <p className={cn("text-xs font-medium", isSelected ? "text-primary" : "text-muted-foreground")}>{theme.label}</p>
           </div>
         );
       })}

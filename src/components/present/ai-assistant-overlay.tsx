@@ -16,12 +16,12 @@ export function AiAssistantOverlay({ prompt, onClose }: { prompt: string; onClos
     <div className="flex max-h-[420px] w-[280px] flex-col overflow-hidden rounded-2xl bg-popover">
       <div className="flex items-center justify-between p-4 pb-2">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-white/80" />
-          <p className="text-xs font-medium text-white">AI Assistant</p>
+          <Sparkles className="h-4 w-4 text-muted-foreground" />
+          <p className="text-xs font-medium text-foreground">AI Assistant</p>
         </div>
         {onClose && (
           <Tip label="Close">
-            <button onClick={onClose} aria-label="Close" className="text-white/60 hover:text-white">
+            <button onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground">
               <X className="h-4 w-4" />
             </button>
           </Tip>
@@ -32,29 +32,29 @@ export function AiAssistantOverlay({ prompt, onClose }: { prompt: string; onClos
           <p className="text-[10px] text-white/90">{prompt}</p>
           <p className="mt-1 text-right text-[8px] text-white">10:24 pm</p>
         </div>
-        <div className="max-w-[90%] rounded-tr-2xl rounded-br-2xl rounded-bl-2xl bg-[#252525] px-3 py-2">
-          <p className="text-[10px] text-white/80">Got it! Here&rsquo;s the plan I follow to design your app:</p>
+        <div className="max-w-[90%] rounded-tr-2xl rounded-br-2xl rounded-bl-2xl bg-secondary px-3 py-2">
+          <p className="text-[10px] text-foreground">Got it! Here&rsquo;s the plan I follow to design your app:</p>
           <div className="mt-2 space-y-1.5">
             {CHECKLIST.map((item) => (
               <div key={item.label} className="flex items-center gap-1.5">
                 {item.done ? (
                   <CheckCircle2 className="h-2.5 w-2.5 shrink-0 text-primary" fill="currentColor" fillOpacity={0.25} />
                 ) : (
-                  <Circle className="h-2.5 w-2.5 shrink-0 text-white/50" />
+                  <Circle className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
                 )}
-                <p className="text-[10px] text-white/80">{item.label}</p>
+                <p className="text-[10px] text-foreground">{item.label}</p>
               </div>
             ))}
           </div>
-          <p className="mt-1 text-right text-[8px] text-white/80">10:24 pm</p>
+          <p className="mt-1 text-right text-[8px] text-muted-foreground">10:24 pm</p>
         </div>
       </div>
-      <button className="m-3 mt-0 flex items-center justify-between rounded-2xl border border-primary/50 bg-[#252525] px-3 py-2 text-left">
+      <button className="m-3 mt-0 flex items-center justify-between rounded-2xl border border-primary/50 bg-secondary px-3 py-2 text-left">
         <div>
-          <p className="text-[10px] font-medium text-white/80">Suggested for you</p>
-          <p className="text-[8px] text-white/80">Add money tracking page for sellers</p>
+          <p className="text-[10px] font-medium text-foreground">Suggested for you</p>
+          <p className="text-[8px] text-muted-foreground">Add money tracking page for sellers</p>
         </div>
-        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-white/60" />
+        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       </button>
     </div>
   );

@@ -38,7 +38,7 @@ export function PresentPromptBar({ taggedElement, onClearTag }: { taggedElement?
         </button>
       </Tip>
 
-      <div className="rounded-3xl bg-[#18181a] p-4">
+      <div className="rounded-3xl bg-popover p-4">
         {taggedElement && (
           <div className="mb-2 flex w-fit items-center gap-1.5 rounded-full bg-primary/15 px-2.5 py-1 text-[10px] text-primary">
             {taggedElement}
@@ -53,10 +53,10 @@ export function PresentPromptBar({ taggedElement, onClearTag }: { taggedElement?
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="Select a screen or specific element to refine…"
-          className="w-full bg-transparent text-sm text-white/70 outline-none placeholder:text-white/70"
+          className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
         />
         <div className="mt-4 flex items-center justify-between">
-          <div className="flex items-center gap-3 text-white/70">
+          <div className="flex items-center gap-3 text-muted-foreground">
             <Tip label="Attach">
               <button aria-label="Attach">
                 <Plus className="h-4 w-4" />
@@ -69,9 +69,9 @@ export function PresentPromptBar({ taggedElement, onClearTag }: { taggedElement?
             </Tip>
           </div>
           <div className="flex items-center gap-3">
-            <ModelDropdown variant="dark" />
+            <ModelDropdown />
             <Tip label="Voice input">
-              <button aria-label="Voice input" className="text-white/70">
+              <button aria-label="Voice input" className="text-muted-foreground">
                 <Mic className="h-4 w-4" />
               </button>
             </Tip>
@@ -92,7 +92,7 @@ export function PresentPromptBar({ taggedElement, onClearTag }: { taggedElement?
           <button
             key={s}
             className={cn(
-              "rounded-full border border-white/20 px-4 py-1.5 text-xs font-medium text-white/60 hover:border-white/40 hover:text-white/80",
+              "rounded-full border border-border px-4 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary/40 hover:text-foreground",
             )}
           >
             {s}

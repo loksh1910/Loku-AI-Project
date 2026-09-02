@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Palette, Mic, ArrowRight, Smartphone, Monitor } from "lucide-react";
+import { Plus, Palette, Mic, ArrowRight, Smartphone, Monitor, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ModelDropdown } from "@/components/ai/model-dropdown";
 import { Tip } from "@/components/ui/tip";
+import { DesignStyleDialog } from "@/components/design-style/design-style-dialog";
+import type { DesignStyle } from "@/components/design-style/design-style-types";
 
 const MODES = [
   { id: "App" as const, icon: Smartphone },
@@ -50,6 +52,8 @@ export function AiPromptBar({
   className?: string;
 }) {
   const [mode, setMode] = useState<"App" | "Web">("App");
+  const [styleDialogOpen, setStyleDialogOpen] = useState(false);
+  const [designStyle, setDesignStyle] = useState<DesignStyle | null>(null);
 
   return (
     <div className={cn("relative", className)}>
@@ -57,7 +61,7 @@ export function AiPromptBar({
           sitting above it — matches the Figma reference exactly, including
           the notch where the box's flat edge curves up into the pill. */}
       <div className="absolute top-0 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
-        <div className="relative flex items-center gap-0.5 rounded-full border-t border-r border-l border-primary/40 bg-[#1e1e1e] p-1">
+        <div className="relative flex items-center gap-0.5 rounded-full border-t border-r border-l border-primary/40 bg-card p-1">
           <PillNotch side="left" />
           <PillNotch side="right" />
           {MODES.map(({ id, icon: Icon }) => (
@@ -68,7 +72,7 @@ export function AiPromptBar({
                 "flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold whitespace-nowrap",
                 mode === id
                   ? "bg-gradient-to-r from-[#6C5CE7] to-[#3d248c] text-white"
-                  : "text-white/60 hover:text-white/80",
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               <Icon className="h-3.5 w-3.5" />
@@ -79,6 +83,17 @@ export function AiPromptBar({
       </div>
 
       <div className="rounded-[28px] border border-primary/40 bg-card px-4 pt-7 pb-3 shadow-[0_0_0_1px_rgba(108,92,231,0.08)]">
+        {designStyle && (
+          <div className="mb-2 flex w-fit items-center gap-1.5 rounded-full bg-primary/15 px-2.5 py-1 text-[10px] text-primary">
+            <Palette className="h-3 w-3" />
+            {designStyle.label}
+            <Tip label="Remove style">
+              <button onClick={() => setDesignStyle(null)} aria-label="Remove style">
+                <X className="h-3 w-3" />
+              </button>
+            </Tip>
+          </div>
+        )}
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -104,11 +119,11 @@ export function AiPromptBar({
                 <Plus className="h-4 w-4" />
               </button>
             </Tip>
-            <Tip label="Style">
+            <Tip label="Design Style">
               <button
-                className="rounded-md p-1.5 hover:bg-secondary"
-                onClick={() => toast("Style picker coming soon.")}
-                aria-label="Style"
+                className={cn("rounded-md p-1.5 hover:bg-secondary", designStyle && "text-primary")}
+                onClick={() => setStyleDialogOpen(true)}
+                aria-label="Design Style"
               >
                 <Palette className="h-4 w-4" />
               </button>
@@ -138,6 +153,8 @@ export function AiPromptBar({
           </div>
         </div>
       </div>
+
+      <DesignStyleDialog open={styleDialogOpen} onOpenChange={setStyleDialogOpen} onApply={setDesignStyle} />
     </div>
   );
 }

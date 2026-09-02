@@ -133,7 +133,7 @@ export function AiBuildingOverlay({ onComplete }: { onComplete?: () => void }) {
         <div className="flex h-[240px] w-[240px] items-center justify-center">
           <Illustration />
         </div>
-        <p key={phase.message} className="w-full text-center text-xs text-white/40">
+        <p key={phase.message} className="w-full text-center text-xs text-muted-foreground">
           {phase.message}
         </p>
       </div>

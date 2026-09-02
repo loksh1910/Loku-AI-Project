@@ -113,7 +113,7 @@ function AiDecideToggle({ active }: { active: boolean }) {
     <svg width="17" height="16" viewBox="0 0 17 16" fill="none" className="shrink-0">
       <path
         d="M12 4H5C2.79086 4 1 5.79086 1 8C1 10.2091 2.79086 12 5 12H12C14.2091 12 16 10.2091 16 8C16 5.79086 14.2091 4 12 4Z"
-        className={cn("transition-colors", active ? "fill-primary stroke-primary" : "fill-[#303030] stroke-[#303030]")}
+        className={cn("transition-colors", active ? "fill-primary stroke-primary" : "fill-muted stroke-muted")}
         strokeWidth="0.5"
         strokeLinejoin="round"
       />
@@ -185,24 +185,24 @@ export function GenerateQuestionsOverlay({
   return (
     <div className="absolute bottom-[78px] left-1/2 z-40 flex h-[420px] w-[626px] -translate-x-1/2 flex-col rounded-[30px] border border-primary bg-popover p-6">
       <div className="mb-3 flex items-center justify-center gap-2">
-        <Sparkles className="h-[17px] w-[17px] text-white/80" />
-        <p className="text-sm font-medium text-white/80">Let&rsquo;s refine your idea</p>
+        <Sparkles className="h-[17px] w-[17px] text-muted-foreground" />
+        <p className="text-sm font-medium text-foreground">Let&rsquo;s refine your idea</p>
       </div>
-      <p className="mb-5 text-center text-xs text-white/80">I&rsquo;ll ask you a few quick questions to get started.</p>
+      <p className="mb-5 text-center text-xs text-muted-foreground">I&rsquo;ll ask you a few quick questions to get started.</p>
 
       {stepIndex > 0 ? (
         <Tip label="Back" className="absolute top-6 left-6">
-          <button onClick={goBack} aria-label="Back" className="text-white/60 hover:text-white">
+          <button onClick={goBack} aria-label="Back" className="text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-5 w-5" />
           </button>
         </Tip>
       ) : null}
       <Tip label="Close" className="absolute top-6 right-6">
-        <button onClick={onClose} aria-label="Close" className="text-white/60 hover:text-white">
+        <button onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground">
           <X className="h-5 w-5" />
         </button>
       </Tip>
-      <p className="absolute top-7 right-14 text-[10px] text-white/40">
+      <p className="absolute top-7 right-14 text-[10px] text-muted-foreground/70">
         {stepIndex + 1}/{STEPS.length}
       </p>
 
@@ -215,8 +215,8 @@ export function GenerateQuestionsOverlay({
 
       <div className="flex flex-1 gap-6 overflow-hidden">
         <div className="flex flex-1 flex-col">
-          <p className="mb-1 text-sm font-medium text-white">{step.title}</p>
-          {step.subtitle && <p className="mb-4 text-xs text-white/80">{step.subtitle}</p>}
+          <p className="mb-1 text-sm font-medium text-foreground">{step.title}</p>
+          {step.subtitle && <p className="mb-4 text-xs text-muted-foreground">{step.subtitle}</p>}
 
           {step.kind === "pills" && (
             <div className={cn("flex flex-wrap gap-3", step.columns === "stack" && "flex-col items-start")}>
@@ -228,7 +228,7 @@ export function GenerateQuestionsOverlay({
                     "rounded-2xl border px-4 py-1.5 text-xs font-medium transition-colors",
                     selected === option
                       ? "border-primary bg-primary text-white"
-                      : "border-white/10 text-white/60 hover:border-white/20 hover:text-white/80",
+                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
                   )}
                 >
                   {option}
@@ -247,11 +247,11 @@ export function GenerateQuestionsOverlay({
                     "flex h-[76px] w-[100px] flex-col items-center justify-center gap-1.5 rounded-2xl border transition-colors",
                     selected === option.value
                       ? "border-primary bg-primary/15"
-                      : "border-white/10 bg-[#18181a] hover:border-white/20",
+                      : "border-border bg-secondary hover:border-primary/40",
                   )}
                 >
-                  <span className="text-base text-white/70">{option.value}</span>
-                  <span className="text-xs font-medium text-white/70">{option.label}</span>
+                  <span className="text-base text-foreground">{option.value}</span>
+                  <span className="text-xs font-medium text-muted-foreground">{option.label}</span>
                 </button>
               ))}
             </div>
@@ -259,22 +259,22 @@ export function GenerateQuestionsOverlay({
 
           {step.kind === "link-upload" && (
             <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2.5 rounded-[46px] border border-white/20 py-2.5 pr-2.5 pl-4">
-                <Link2 className="h-5 w-5 shrink-0 text-white/60" />
+              <div className="flex items-center gap-2.5 rounded-[46px] border border-border py-2.5 pr-2.5 pl-4">
+                <Link2 className="h-5 w-5 shrink-0 text-muted-foreground" />
                 <input
                   value={inspirationLink}
                   onChange={(e) => setInspirationLink(e.target.value)}
                   placeholder="Paste website URL (e.g. dribbble.com, behance.net)"
-                  className="w-full bg-transparent text-[11px] text-white/80 outline-none placeholder:text-white/60"
+                  className="w-full bg-transparent text-[11px] text-foreground outline-none placeholder:text-muted-foreground"
                 />
               </div>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-white/20 py-3 hover:border-white/40"
+                className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-border py-3 hover:border-primary/40"
               >
                 <Upload className="h-4 w-4 text-primary" />
                 <span className="text-xs text-primary">Upload images</span>
-                <span className="text-[10px] text-white/60">PNG, JPG up to 10MB</span>
+                <span className="text-[10px] text-muted-foreground">PNG, JPG up to 10MB</span>
               </button>
               <input
                 ref={fileInputRef}
@@ -283,7 +283,7 @@ export function GenerateQuestionsOverlay({
                 className="hidden"
                 onChange={(e) => setInspirationFileName(e.target.files?.[0]?.name ?? null)}
               />
-              {inspirationFileName && <p className="text-[10px] text-white/60">Selected: {inspirationFileName}</p>}
+              {inspirationFileName && <p className="text-[10px] text-muted-foreground">Selected: {inspirationFileName}</p>}
             </div>
           )}
 
@@ -292,7 +292,7 @@ export function GenerateQuestionsOverlay({
               value={extraNotes}
               onChange={(e) => setExtraNotes(e.target.value)}
               placeholder={step.placeholder}
-              className="h-[100px] w-full resize-none rounded-2xl border border-white/20 p-3 text-xs text-white/80 outline-none placeholder:text-white/60"
+              className="h-[100px] w-full resize-none rounded-2xl border border-border p-3 text-xs text-foreground outline-none placeholder:text-muted-foreground"
             />
           )}
         </div>
@@ -318,7 +318,7 @@ export function GenerateQuestionsOverlay({
         )}
 
         <div className="flex items-center gap-5">
-          <button onClick={skip} className="text-xs font-medium text-white/60 hover:text-white/80">
+          <button onClick={skip} className="text-xs font-medium text-muted-foreground hover:text-foreground">
             Skip this
           </button>
           <button

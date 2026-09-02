@@ -86,7 +86,7 @@ export function ManualBottomToolbar({
                   <button
                     key={c}
                     onClick={() => onDefaultColorChange(c)}
-                    className={cn("h-5 w-5 rounded-full border", defaultColor === c ? "border-primary ring-1 ring-primary" : "border-white/20")}
+                    className={cn("h-5 w-5 rounded-full border", defaultColor === c ? "border-primary ring-1 ring-primary" : "border-border")}
                     style={{ background: c }}
                   />
                 ))}

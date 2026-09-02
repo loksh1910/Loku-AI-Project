@@ -151,7 +151,7 @@ export function FilterDialog({
                       )}
                       {opt.swatch && (
                         <span
-                          className="h-6 w-6 rounded-full border border-white/10"
+                          className="h-6 w-6 rounded-full border border-border"
                           style={{ backgroundColor: opt.swatch }}
                         />
                       )}

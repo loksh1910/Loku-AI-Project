@@ -18,6 +18,7 @@ import type { PipelineTab } from "@/components/canvas/canvas-pipeline-bar";
 import { ShowAllFlowToggle } from "@/components/canvas/show-all-flow-toggle";
 import { PrototypePromptBar } from "@/components/canvas/prototype-prompt-bar";
 import { PrototypeInteractionBox } from "@/components/canvas/prototype-interaction-box";
+import { CanvasBackgroundPicker } from "@/components/canvas/canvas-background-picker";
 import { INTERACTION_TEMPLATES, type ApplyOn, type PrototypeInteraction } from "@/components/canvas/prototype-types";
 import { Tip } from "@/components/ui/tip";
 import { rectsIntersect } from "@/lib/utils";
@@ -90,6 +91,9 @@ export function CanvasModeView({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [tool, setTool] = useState<CanvasTool>("pointer");
+  // null = follow the app's own light/dark background — a manual override
+  // lets a white-themed screen stay visible against a light canvas, etc.
+  const [canvasBg, setCanvasBg] = useState<string | null>(null);
   const [variations, setVariations] = useState<VariationId[]>(() => {
     const present = new Set(items.filter(isScreenItem).map((i) => i.variation));
     const ordered = ALL_VARIATIONS.filter((v) => present.has(v));
@@ -542,7 +546,7 @@ export function CanvasModeView({
   })();
 
   return (
-    <div className="relative flex-1 overflow-hidden bg-background">
+    <div className="relative flex-1 overflow-hidden bg-background" style={canvasBg ? { background: canvasBg } : undefined}>
       <div
         ref={viewportRef}
         className={cn("absolute inset-0 select-none", tool === "hand" ? "cursor-grab active:cursor-grabbing" : "")}
@@ -816,6 +820,7 @@ export function CanvasModeView({
       )}
 
       <div className="absolute right-4 bottom-4 z-30 flex items-center gap-2 text-muted-foreground">
+        <CanvasBackgroundPicker value={canvasBg} onChange={setCanvasBg} />
         <span className="rounded-full border border-border/60 bg-card px-2.5 py-1 text-xs">{zoomPct}%</span>
         <Tip label="Help">
           <button className="rounded-full border border-border/60 bg-card p-1.5 hover:text-foreground" aria-label="Help">

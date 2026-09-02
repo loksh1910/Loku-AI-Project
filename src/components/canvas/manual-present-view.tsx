@@ -107,7 +107,7 @@ export function ManualPresentView({
       {screensOpen && frames.length > 0 && (
         <div className="absolute top-6 left-6 z-30 w-[280px] rounded-2xl bg-popover p-4">
           <div className="mb-1 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-white">Screens</h3>
+            <h3 className="text-sm font-semibold text-foreground">Screens</h3>
           </div>
           <p className="mb-1 px-1 text-[10px] tracking-wide text-muted-foreground uppercase">{frames.length} screens</p>
           <div className="max-h-[280px] overflow-y-auto">
@@ -122,7 +122,7 @@ export function ManualPresentView({
               >
                 <span className="flex items-center gap-3">
                   <span className="w-5 shrink-0 text-[10px] text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
-                  <span className="text-white">{f.name}</span>
+                  <span className="text-foreground">{f.name}</span>
                 </span>
                 <Eye className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               </button>

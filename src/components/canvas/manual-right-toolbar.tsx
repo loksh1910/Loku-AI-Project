@@ -463,7 +463,7 @@ function FillPanel({
       </div>
       <div className="grid grid-cols-8 gap-1.5">
         {COLOR_SWATCHES.map((c) => (
-          <button key={c} onClick={() => onUpdateElement({ fill: c })} className="h-5 w-5 rounded-full border border-white/20" style={{ background: c }} />
+          <button key={c} onClick={() => onUpdateElement({ fill: c })} className="h-5 w-5 rounded-full border border-border" style={{ background: c }} />
         ))}
       </div>
     </PanelShell>
@@ -498,7 +498,7 @@ function FrameFillPanel({
       </div>
       <div className="grid grid-cols-8 gap-1.5">
         {COLOR_SWATCHES.map((c) => (
-          <button key={c} onClick={() => onUpdateFrame({ fill: c })} className="h-5 w-5 rounded-full border border-white/20" style={{ background: c }} />
+          <button key={c} onClick={() => onUpdateFrame({ fill: c })} className="h-5 w-5 rounded-full border border-border" style={{ background: c }} />
         ))}
       </div>
     </PanelShell>
@@ -532,6 +532,25 @@ function TypographyPanel({
           ))}
         </select>
       </label>
+      <p className="mb-1 text-[10px] text-muted-foreground">Color</p>
+      <div className="mb-2.5 flex items-center gap-2">
+        <input
+          type="color"
+          value={/^#[0-9a-fA-F]{6}$/.test(element.textColor) ? element.textColor : "#111111"}
+          onChange={(e) => onUpdateElement({ textColor: e.target.value })}
+          className="h-8 w-8 shrink-0 cursor-pointer rounded"
+        />
+        <input
+          value={element.textColor}
+          onChange={(e) => onUpdateElement({ textColor: e.target.value })}
+          className="w-full rounded-lg border border-border/60 bg-secondary/40 px-2 py-1.5 text-xs outline-none"
+        />
+      </div>
+      <div className="mb-2.5 grid grid-cols-8 gap-1.5">
+        {COLOR_SWATCHES.map((c) => (
+          <button key={c} onClick={() => onUpdateElement({ textColor: c })} className="h-5 w-5 rounded-full border border-border" style={{ background: c }} />
+        ))}
+      </div>
       <div className="mb-2.5 grid grid-cols-2 gap-2">
         <label className="block">
           <span className="mb-1 block text-[10px] text-muted-foreground">Weight</span>
@@ -654,7 +673,7 @@ function StrokePanel({
         <input type="color" value={element.stroke} onChange={(e) => onUpdateElement({ stroke: e.target.value })} className="h-8 w-8 shrink-0 cursor-pointer rounded" />
         <div className="grid grid-cols-8 gap-1.5">
           {COLOR_SWATCHES.map((c) => (
-            <button key={c} onClick={() => onUpdateElement({ stroke: c })} className="h-5 w-5 rounded-full border border-white/20" style={{ background: c }} />
+            <button key={c} onClick={() => onUpdateElement({ stroke: c })} className="h-5 w-5 rounded-full border border-border" style={{ background: c }} />
           ))}
         </div>
       </div>

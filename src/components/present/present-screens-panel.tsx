@@ -25,7 +25,7 @@ export function PresentScreensPanel({
   return (
     <div className="w-[280px] rounded-2xl bg-popover p-4">
       <div className="mb-1 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white">Screens</h3>
+        <h3 className="text-sm font-semibold text-foreground">Screens</h3>
         <div className="flex items-center gap-2 text-muted-foreground">
           <Plus className="h-4 w-4" />
           <Search className="h-3.5 w-3.5" />
@@ -51,7 +51,7 @@ export function PresentScreensPanel({
             >
               <span className="flex items-center gap-3">
                 <span className="w-5 shrink-0 text-[10px] text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
-                <span className={cn("text-white", hidden && "text-white/40")}>{HEALTH_SCREENS[id].name}</span>
+                <span className={cn("text-foreground", hidden && "text-muted-foreground/60")}>{HEALTH_SCREENS[id].name}</span>
               </span>
               {onToggleHidden ? (
                 <Tip label={hidden ? "Show screen" : "Hide screen"} side="left">
@@ -60,7 +60,7 @@ export function PresentScreensPanel({
                       e.stopPropagation();
                       onToggleHidden(id);
                     }}
-                    className="shrink-0 text-muted-foreground hover:text-white"
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
                     aria-label={hidden ? "Show screen" : "Hide screen"}
                   >
                     {hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
